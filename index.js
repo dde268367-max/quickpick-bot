@@ -160,12 +160,15 @@ JSON ТІЛЬКИ:
 
   recs = recs.map(r => {
     const venue = venues.find(v => v.name === r.place);
-    const dish =
-  venue?.filteredMenu.find(d =>
-    d.name.toLowerCase().includes(r.dish.toLowerCase()) ||
-    r.dish.toLowerCase().includes(d.name.toLowerCase())
-  ) || venue?.filteredMenu[0];
-    return { ...r, photo: getFullPhotoUrl(dish?.photo) || null, lat: venue?.lat, lng: venue?.lng, address: venue?.address };
+    // Шукаємо страву — спочатку точний збіг, потім часткове, потім перша страва з фото
+    const dish = venue?.filteredMenu.find(d => d.name === r.dish)
+      || venue?.filteredMenu.find(d =>
+          d.name.toLowerCase().includes(r.dish.toLowerCase()) ||
+          r.dish.toLowerCase().includes(d.name.toLowerCase())
+        )
+      || venue?.filteredMenu.find(d => d.photo) // перша страва з фото
+      || venue?.filteredMenu[0];
+    return { ...r, photo: dish?.file_id || getFullPhotoUrl(dish?.photo) || null, lat: venue?.lat, lng: venue?.lng, address: venue?.address };
   });
 
   user.lastRecs = recs;
