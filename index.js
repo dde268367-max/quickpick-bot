@@ -336,27 +336,14 @@ bot.on('callback_query', async (query) => {
 
     if (rec.photo) {
       try {
-        const response = await axios.get(rec.photo, {
-          responseType: 'arraybuffer',
-          maxRedirects: 5,
-          validateStatus: false,
-          headers: {
-            'User-Agent': 'Mozilla/5.0',
-            'Referer': 'https://choiceqr.com/'
-          }
-        });
-        const contentType = response.headers['content-type'];
-        if (!contentType || !contentType.startsWith('image')) {
-          throw new Error(`NOT IMAGE: ${contentType}`);
-        }
-        const photoBuffer = Buffer.from(response.data);
-        await bot.sendPhoto(chatId, photoBuffer, {
+        // Відправляємо URL напряму — Telegram сам завантажує фото
+        await bot.sendPhoto(chatId, rec.photo, {
           caption: detailText,
           parse_mode: 'Markdown',
           ...actionButtons
         });
       } catch(e) {
-        console.log('PHOTO ERROR:', rec.photo, e.message);
+        console.log('PHOTO ERROR:', e.message);
         await bot.sendMessage(chatId, detailText, { parse_mode: 'Markdown', ...actionButtons });
       }
     } else {
