@@ -168,7 +168,7 @@ JSON ТІЛЬКИ:
         )
       || venue?.filteredMenu.find(d => d.photo) // перша страва з фото
       || venue?.filteredMenu[0];
-    return { ...r, photo: dish?.file_id || getFullPhotoUrl(dish?.photo) || null, lat: venue?.lat, lng: venue?.lng, address: venue?.address };
+    return { ...r, photo: dish?.photo_cloud || dish?.file_id || getFullPhotoUrl(dish?.photo) || null, lat: venue?.lat, lng: venue?.lng, address: venue?.address };
   });
 
   user.lastRecs = recs;
