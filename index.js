@@ -340,7 +340,7 @@ bot.on('callback_query', async (query) => {
     if (rec.photo) {
       try {
         // Відправляємо як document — не збільшується при кліку
-        await bot.sendDocument(chatId, rec.photo, {
+        await bot.sendPhoto(chatId, rec.photo, {
           caption: detailText,
           parse_mode: 'Markdown',
           ...actionButtons
