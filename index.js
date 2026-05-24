@@ -37,10 +37,19 @@ function getFullPhotoUrl(url) {
   clean = clean.split('?')[0];
 
   if (clean.endsWith('.webp')) {
-  return null;
+    return null;
+  }
+
+  return clean;
 }
 
-return clean;
+function enhanceCloudinaryPhoto(url) {
+  if (!url) return null;
+  // Додаємо трансформацію Cloudinary: найвища якість, авто-формат, ширина 1200px
+  if (url.includes('res.cloudinary.com')) {
+    return url.replace('/upload/', '/upload/q_auto:best,f_auto,w_1200/');
+  }
+  return url;
 }
 
 function getBudgetRange(cat) {
@@ -168,7 +177,7 @@ JSON ТІЛЬКИ:
         )
       || venue?.filteredMenu.find(d => d.photo) // перша страва з фото
       || venue?.filteredMenu[0];
-    return { ...r, photo: dish?.photo_cloud || dish?.file_id || getFullPhotoUrl(dish?.photo) || null, lat: venue?.lat, lng: venue?.lng, address: venue?.address };
+    return { ...r, photo: enhanceCloudinaryPhoto(dish?.photo_cloud) || dish?.file_id || getFullPhotoUrl(dish?.photo) || null, lat: venue?.lat, lng: venue?.lng, address: venue?.address };
   });
 
   user.lastRecs = recs;
