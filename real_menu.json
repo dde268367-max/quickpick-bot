@@ -59110,7 +59110,7 @@
     "menu": [
       {
         "name": "КВІДРО L КРЕВЕТКИ В ВЕРШКОВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59118,7 +59118,7 @@
       },
       {
         "name": "КВІДРО L КРЕВЕТКИ В СОЄВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59126,7 +59126,7 @@
       },
       {
         "name": "КВІДРО L РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59134,7 +59134,7 @@
       },
       {
         "name": "КВІДРО XL РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59150,7 +59150,7 @@
       },
       {
         "name": "КВІДРО XL КРИЛА BBQ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59158,7 +59158,7 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, L",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59166,7 +59166,7 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, XL",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59174,7 +59174,7 @@
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, L",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59182,7 +59182,7 @@
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, ХL",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59542,7 +59542,7 @@
       },
       {
         "name": "ВЕЛИКИЙ НАБІР В'ЯЛЕНОГО М'ЯСА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59550,7 +59550,7 @@
       },
       {
         "name": "ВЕЛИКА ФРІ-ДОШКА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -59558,7 +59558,7 @@
       },
       {
         "name": "ГРИЛЬ-НАБІР НА ДВОХ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60018,7 +60018,7 @@
     "menu": [
       {
         "name": "КВІДРО L КРЕВЕТКИ В СОЄВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60026,7 +60026,7 @@
       },
       {
         "name": "КВІДРО L КРЕВЕТКИ В ВЕРШКОВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60034,7 +60034,7 @@
       },
       {
         "name": "КВІДРО L РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60042,7 +60042,7 @@
       },
       {
         "name": "КВІДРО XL РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60058,7 +60058,7 @@
       },
       {
         "name": "КВІДРО XL КРИЛА BBQ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60074,7 +60074,7 @@
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, L",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60082,7 +60082,7 @@
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, ХL",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60090,7 +60090,7 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, L",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60098,7 +60098,7 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, XL",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60386,7 +60386,7 @@
       },
       {
         "name": "ВЕЛИКА ФРІ-ДОШКА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60394,7 +60394,7 @@
       },
       {
         "name": "ВЕЛИКИЙ НАБІР В'ЯЛЕНОГО М'ЯСА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60846,7 +60846,7 @@
     "menu": [
       {
         "name": "КВІДРО L КРЕВЕТКИ В СОЄВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60854,7 +60854,7 @@
       },
       {
         "name": "КВІДРО L КРЕВЕТКИ В ВЕРШКОВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60870,7 +60870,7 @@
       },
       {
         "name": "КВІДРО L РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60878,7 +60878,7 @@
       },
       {
         "name": "КВІДРО XL КРИЛА BBQ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60886,7 +60886,7 @@
       },
       {
         "name": "КВІДРО XL РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60894,7 +60894,7 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, L",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60902,7 +60902,7 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, XL",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60910,7 +60910,7 @@
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, L",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -60918,7 +60918,7 @@
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, ХL",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61246,7 +61246,7 @@
       },
       {
         "name": "ВЕЛИКИЙ НАБІР В'ЯЛЕНОГО М'ЯСА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61254,7 +61254,7 @@
       },
       {
         "name": "ВЕЛИКА ФРІ-ДОШКА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61262,7 +61262,7 @@
       },
       {
         "name": "БАЗАР-МАНГАЛ АГА",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61674,7 +61674,7 @@
     "menu": [
       {
         "name": "КВІДРО L КРЕВЕТКИ В ВЕРШКОВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61682,7 +61682,7 @@
       },
       {
         "name": "КВІДРО L КРЕВЕТКИ В СОЄВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61706,7 +61706,7 @@
       },
       {
         "name": "КВІДРО XL КРИЛА BBQ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61714,7 +61714,7 @@
       },
       {
         "name": "КВІДРО L РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61722,7 +61722,7 @@
       },
       {
         "name": "КВІДРО XL РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61730,7 +61730,7 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, L",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61738,7 +61738,7 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, XL",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61746,7 +61746,7 @@
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, L",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -61754,7 +61754,7 @@
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, ХL",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -62034,7 +62034,7 @@
       },
       {
         "name": "ВЕЛИКИЙ НАБІР В'ЯЛЕНОГО М'ЯСА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -62050,7 +62050,7 @@
       },
       {
         "name": "ВЕЛИКА ФРІ-ДОШКА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
@@ -62066,7 +62066,7 @@
       },
       {
         "name": "БАЗАР-МАНГАЛ АГА",
-        "price": NaN,
+        "price": 0,
         "weight": "",
         "description": "",
         "photo": "",
