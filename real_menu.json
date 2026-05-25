@@ -15982,12 +15982,12 @@
     "menu": [
       {
         "name": "КВІДРО L КРЕВЕТКИ В ВЕРШКОВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_IpAbF-jifaD-lQNLW.webp"
       },
       {
         "name": "КВІДРО L КРЕВЕТКИ В СОЄВОМУ СОУСІ",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_zjXcI-eQClk-DmFSe.webp"
       },
       {
@@ -15997,17 +15997,17 @@
       },
       {
         "name": "КВІДРО L РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_aFkrU-yJjOC-gWQhG.webp"
       },
       {
         "name": "КВІДРО XL КРИЛА BBQ",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_WtWdd-JfgiI-QeMvv.webp"
       },
       {
         "name": "КВІДРО XL РЕБРА ГРИЛЬ",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_LOIfG-VVKLk-fjFzs.webp"
       },
       {
@@ -16017,22 +16017,22 @@
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, L",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_ICjej-yiOUr-vDVcB.webp"
       },
       {
         "name": "КОМБО БУРГЕРИ ТА КРИЛА, XL",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_Nscmo-PJbXH-KqGqP.webp"
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, L",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_DEAsy-IwslH-JKzWi.webp"
       },
       {
         "name": "КОМБО ДАБЛ БУРГЕРИ ТА РЕБРА, ХL",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_LCGWG-kluTB-lZLeb.webp"
       },
       {
@@ -16242,7 +16242,7 @@
       },
       {
         "name": "БАЗАР-МАНГАЛ АГА",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_ACjmE-xdwmR-WCkbL.webp"
       },
       {
@@ -16257,12 +16257,12 @@
       },
       {
         "name": "ВЕЛИКИЙ НАБІР В'ЯЛЕНОГО М'ЯСА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_QTeMS-GbGiR-fsFxl.webp"
       },
       {
         "name": "ВЕЛИКА ФРІ-ДОШКА НА ТУСОВКУ",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-thisispivbarkharkovski/menu/thumbnail_BfCRT-EiTme-WoTfr.webp"
       },
       {
@@ -20199,7 +20199,7 @@
       },
       {
         "name": "Комбо Чадеулі",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-chacha-kyiv/menu/thumbnail_GhJMj-Fybay-ObIbj.jpeg"
       },
       {
@@ -20304,7 +20304,7 @@
       },
       {
         "name": "Метровий люля-кебаб зі свинини та яловичини",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-chacha-kyiv/menu/thumbnail_YJido-uAjZl-LtLkJ.jpeg"
       },
       {
@@ -20314,7 +20314,7 @@
       },
       {
         "name": "Метровий люля-кебаб з добірної баранини та сиром дорблю",
-        "price": NaN,
+        "price": 0,
         "photo": "https://cdn-media.choiceqr.com/prod-eat-chacha-kyiv/menu/thumbnail_LuuoO-CJfUr-WNNEJ.jpeg"
       },
       {
