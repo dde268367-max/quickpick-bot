@@ -12,21 +12,26 @@ function registerButtons(bot) {
 
     await bot.answerCallbackQuery(query.id);
 
-    // --- Новий пошук ---
     if (data === 'start_search') {
       user.session = {}; user.step = 'location';
       await bot.sendMessage(chatId, `📍 *Поділись геолокацією*`, { parse_mode: 'Markdown', ...geoKb() });
 
-    // --- Повторити / Інші варіанти ---
-    } else if (data === 'retry' || data === 'swap') {
+    } else if (data === 'retry') {
       if (!user.session.lat) {
         user.step = 'location';
         await bot.sendMessage(chatId, `📍 Поділись геолокацією`, geoKb());
         return;
       }
-      await doSearch(bot, chatId);
+      await doSearch(bot, chatId, false);
 
-    // --- Обрати страву ---
+    } else if (data === 'swap') {
+      if (!user.session.lat) {
+        user.step = 'location';
+        await bot.sendMessage(chatId, `📍 Поділись геолокацією`, geoKb());
+        return;
+      }
+      await doSearch(bot, chatId, true); // true = swap mode, кардинально інші
+
     } else if (data.startsWith('pick_')) {
       const idx = parseInt(data.split('_')[1]);
       const rec = user.lastRecs?.[idx];
@@ -44,29 +49,19 @@ function registerButtons(bot) {
         : `https://www.google.com/maps/search/${encodeURIComponent((rec.place || '') + ' ' + (rec.address || 'Київ'))}`;
 
       const emoji = getCuisineEmoji(rec.dish);
-      const detailText = `✅ *Чудовий вибір!*\n\n${emoji} *${rec.dish}*\n🏠 ${rec.place}\n💰 ${rec.price} грн  📍 ${rec.distKm} км\n\n_${rec.description || ''}_\n\nСмачного 🍴`;
+      const detailText = `✅ *Чудовий вибір!*\n\n${emoji} *${rec.dish}*\n🏠 ${rec.place}\n💰 ${rec.price} грн  •  📍 ${rec.distKm} км\n\n_${rec.description || ''}_\n\nСмачного! 🍴`;
 
       const actionButtons = {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📍 Маршрут', url: mapsUrl }, { text: '❤️ Зберегти', callback_data: `save_${idx}` }],
-            [{ text: '🔄 Новий пошук', callback_data: 'new_search' }],
+            [{ text: '🗺 Маршрут', url: mapsUrl }, { text: '❤️ Зберегти', callback_data: `save_${idx}` }],
+            [{ text: '🔍 Шукати знову', callback_data: 'new_search' }],
           ]
         }
       };
 
-      if (rec.photo) {
-        try {
-          await bot.sendPhoto(chatId, rec.photo, { caption: detailText, parse_mode: 'Markdown', ...actionButtons });
-        } catch (e) {
-          console.error('[pick] PHOTO ERROR:', e.message);
-          await bot.sendMessage(chatId, detailText, { parse_mode: 'Markdown', ...actionButtons });
-        }
-      } else {
-        await bot.sendMessage(chatId, detailText, { parse_mode: 'Markdown', ...actionButtons });
-      }
+      await bot.sendMessage(chatId, detailText, { parse_mode: 'Markdown', ...actionButtons });
 
-      // PRO підказка після 2-3 пошуків
       if (!user.isPro && user.searchCount >= 2 && user.searchCount <= 3) {
         setTimeout(async () => {
           await bot.sendMessage(chatId,
@@ -79,7 +74,6 @@ function registerButtons(bot) {
         }, 1500);
       }
 
-    // --- Зберегти страву ---
     } else if (data.startsWith('save_')) {
       const idx = parseInt(data.split('_')[1]);
       const rec = user.lastRecs?.[idx];
@@ -91,7 +85,6 @@ function registerButtons(bot) {
         await bot.sendMessage(chatId, `❤️ *${rec.dish}* збережено!\n🏠 ${rec.place}`, { parse_mode: 'Markdown' });
       }
 
-    // --- Новий пошук зі збереженою геолокацією ---
     } else if (data === 'new_search') {
       const savedLat = user.session.lat;
       const savedLng = user.session.lng;
@@ -108,13 +101,11 @@ function registerButtons(bot) {
         await bot.sendMessage(chatId, `📍 *Поділись геолокацією*`, { parse_mode: 'Markdown', ...geoKb() });
       }
 
-    // --- Скинути ---
     } else if (data === 'reset') {
       user.session = {}; user.step = null; user.lastRecs = [];
       await bot.sendMessage(chatId, `🔄 Скинуто!`,
         inlineKb([[{ text: '🚀 Почати', data: 'start_search' }]]));
 
-    // --- PRO ---
     } else if (data === 'show_pro' || data === 'pro') {
       await showPro(bot, chatId);
 
@@ -130,7 +121,6 @@ function registerButtons(bot) {
     } else if (data === 'pay') {
       await bot.sendMessage(chatId, `⭐ Оплата активується найближчим часом.\n\nНапиши: @quickpick_support`);
 
-    // --- Профіль ---
     } else if (data === 'all_saved') {
       if (!user.saved.length) { await bot.sendMessage(chatId, `❤️ Збережених немає.`); return; }
       const list = user.saved.map((s, i) => `${i + 1}. *${s.dish}* — ${s.place}`).join('\n');
