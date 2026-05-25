@@ -1,5 +1,6 @@
 const { getUser } = require('../users');
 const { inlineKb, geoKb } = require('../utils');
+const { realMenu } = require('../menu');
 
 function registerCommands(bot) {
 
@@ -67,6 +68,31 @@ function registerCommands(bot) {
         [{ text: '🚫 Очистити збережені', data: 'clear_saved' }],
       ]) }
     );
+  });
+
+  // /find Назва — пошук заклаgу в базі
+  bot.onText(/\/find (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    const query = match[1].toLowerCase().trim();
+
+    const found = Object.values(realMenu).filter(v =>
+      v.name.toLowerCase().includes(query)
+    );
+
+    if (!found.length) {
+      await bot.sendMessage(chatId, `❌ Заклад *${match[1]}* не знайдено в базі.`, { parse_mode: 'Markdown' });
+      return;
+    }
+
+    for (const v of found.slice(0, 3)) {
+      const dishes = v.menu.slice(0, 10).map(d => `• ${d.name} — ${d.price}₴`).join('\n');
+      const coords = v.coords ? `\n📍 coords: [${v.coords[1]}, ${v.coords[0]}]` : '';
+      const extra = v.menu.length > 10 ? `\n\n...та ще ${v.menu.length - 10} страв` : '';
+      await bot.sendMessage(chatId,
+        `✅ *${v.name}*${coords}\n\n${dishes}${extra}`,
+        { parse_mode: 'Markdown' }
+      );
+    }
   });
 
   bot.onText(/\/reset/, async (msg) => {
