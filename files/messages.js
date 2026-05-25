@@ -1,0 +1,34 @@
+const { getUser } = require('../users');
+const { kb, inlineKb } = require('../utils');
+const { BUDGET_BUTTONS } = require('../config');
+const { doSearch } = require('../search');
+
+function registerMessages(bot) {
+  bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const text = msg.text;
+    const user = getUser(chatId);
+
+    if (!text || text.startsWith('/')) return;
+
+    if (user.step === 'cuisine') {
+      user.session.cuisine = text;
+      user.step = 'budget';
+      await bot.sendMessage(chatId, `💰 *Який бюджет?*`, {
+        parse_mode: 'Markdown',
+        ...kb(BUDGET_BUTTONS),
+      });
+
+    } else if (user.step === 'budget') {
+      user.session.budget = text;
+      user.step = null;
+      await doSearch(bot, chatId);
+
+    } else {
+      await bot.sendMessage(chatId, `Натисни /pick щоб знайти їжу 🍽`,
+        inlineKb([[{ text: '🍽 Знайти їжу', data: 'start_search' }]]));
+    }
+  });
+}
+
+module.exports = { registerMessages };
