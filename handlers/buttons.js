@@ -18,22 +18,14 @@ function registerButtons(bot) {
 
     if (data === 'start_search') {
       user.session = {}; user.step = 'location';
-      await bot.sendMessage(chatId,
-        `📍 *Поділись геолокацією або обери район вручну*`,
-        {
-          parse_mode: 'Markdown',
-          reply_markup: {
-            keyboard: [[{ text: '📍 Поділитись геолокацією', request_location: true }]],
-            resize_keyboard: true,
-            one_time_keyboard: true,
-          }
+      await bot.sendMessage(chatId, `📍 *Поділись геолокацією*`, {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          keyboard: [[{ text: '📍 Поділитись геолокацією', request_location: true }]],
+          resize_keyboard: true,
+          one_time_keyboard: true,
         }
-      );
-      // Через секунду показуємо inline-кнопку для ручного вибору
-      setTimeout(async () => {
-        await bot.sendMessage(chatId, `або`,
-          inlineKb([[{ text: '🗺 Обрати район вручну', data: 'manual_location' }]]));
-      }, 500);
+      });
 
     } else if (data === 'manual_location') {
       await bot.sendMessage(chatId, `📍 Обери місто:`,
