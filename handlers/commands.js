@@ -86,7 +86,7 @@ function registerCommands(bot) {
 
     for (const v of found.slice(0, 3)) {
       const dishes = v.menu.slice(0, 10).map(d => `• ${d.name} — ${d.price}₴`).join('\n');
-      const coords = v.coords ? `\n📍 coords: [${v.coords[1]}, ${v.coords[0]}]` : '';
+      const coords = v.coords && v.coords[0] && v.coords[1] ? `\n📍 [${v.coords[1]}, ${v.coords[0]}]` : '';
       const extra = v.menu.length > 10 ? `\n\n...та ще ${v.menu.length - 10} страв` : '';
       await bot.sendMessage(chatId,
         `✅ *${v.name}*${coords}\n\n${dishes}${extra}`,
