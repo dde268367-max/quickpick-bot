@@ -1,87 +1,16 @@
 const TelegramBot = require('node-telegram-bot-api');
+const { BOT_TOKEN } = require('./config');
 
-    await doSearch(chatId);
+const { registerCommands } = require('./handlers/commands');
+const { registerLocation }  = require('./handlers/location');
+const { registerMessages }  = require('./handlers/messages');
+const { registerButtons }   = require('./handlers/buttons');
 
-    return;
-  }
-});
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
-bot.on('callback_query', async query => {
-  const chatId = query.message.chat.id;
-  const data = query.data;
+registerCommands(bot);
+registerLocation(bot);
+registerMessages(bot);
+registerButtons(bot);
 
-  const user = getUser(chatId);
-
-  await bot.answerCallbackQuery(query.id);
-
-  if (data === 'start_search') {
-    user.step = 'location';
-
-    await bot.sendMessage(
-      chatId,
-      '📍 *Поділись геолокацією*',
-      {
-        parse_mode: 'Markdown',
-        ...geoKb()
-      }
-    );
-
-    return;
-  }
-
-  if (data.startsWith('pick_')) {
-    const idx = parseInt(data.split('_')[1]);
-
-    const rec = user.lastRecs[idx];
-
-    if (!rec) return;
-
-    const mapsUrl = rec.lat && rec.lng
-      ? `https://www.google.com/maps/dir/?api=1&destination=${rec.lat},${rec.lng}`
-      : `https://www.google.com/maps/search/${encodeURIComponent(rec.place)}`;
-
-    const detailText = `✅ *Чудовий вибір!*\n\n🍽 ${rec.dish}\n🏠 ${rec.place}\n💰 ${rec.price} грн`;
-
-    const actionButtons = {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '📍 Маршрут', url: mapsUrl }],
-          [{ text: '🔄 Новий пошук', callback_data: 'start_search' }]
-        ]
-      }
-    };
-
-    if (rec.photo) {
-      try {
-        const photoBuffer = await downloadPhoto(rec.photo);
-
-        if (photoBuffer) {
-          await bot.sendPhoto(chatId, photoBuffer, {
-            caption: detailText,
-            parse_mode: 'Markdown',
-            ...actionButtons
-          });
-        } else {
-          await bot.sendMessage(chatId, detailText, {
-            parse_mode: 'Markdown',
-            ...actionButtons
-          });
-        }
-      } catch (e) {
-        console.log('PHOTO ERROR:', e.message);
-
-        await bot.sendMessage(chatId, detailText, {
-          parse_mode: 'Markdown',
-          ...actionButtons
-        });
-      }
-    } else {
-      await bot.sendMessage(chatId, detailText, {
-        parse_mode: 'Markdown',
-        ...actionButtons
-      });
-    }
-  }
-});
-
-console.log('⚡ QuickPick запущено!');
+console.log('⚡ QuickPick v10 запущено!');
