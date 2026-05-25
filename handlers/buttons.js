@@ -2,7 +2,11 @@ const { getUser } = require('../users');
 const { getCuisineEmoji, inlineKb, geoKb, kb } = require('../utils');
 const { doSearch } = require('../search');
 const { showPro } = require('./commands');
-const { CUISINE_BUTTONS, KYIV_DISTRICTS, KYIV_OBLAST_CITIES } = require('../config');
+const { CUISINE_BUTTONS, BUDGET_BUTTONS } = require('../config');
+const {
+  handleManualLocation, handleCityKyiv, handleCityOblast,
+  handleDistrict, handleOblastCity, randomIntro
+} = require('./location');
 
 function registerButtons(bot) {
   bot.on('callback_query', async (query) => {
@@ -10,85 +14,73 @@ function registerButtons(bot) {
     const user = getUser(chatId);
     const data = query.data;
 
-    // location.js також слухає callback_query — пропускаємо його події тут
-    if (['manual_location','city_kyiv','city_oblast'].includes(data) ||
-        data.startsWith('district_') || data.startsWith('oblast_')) return;
-
     await bot.answerCallbackQuery(query.id);
 
+    // --- Старт ---
     if (data === 'start_search') {
       user.session = {}; user.step = 'location';
-      await bot.sendMessage(chatId, `📍 *Поділись геолокацією*`, {
+      await bot.sendMessage(chatId, `📍 *Як шукаємо?*`, {
         parse_mode: 'Markdown',
-        reply_markup: {
-          keyboard: [[{ text: '📍 Поділитись геолокацією', request_location: true }]],
-          resize_keyboard: true,
-          one_time_keyboard: true,
-        }
+        ...inlineKb([
+          [{ text: '📍 Поділитися геолокацією', data: 'request_geo' }],
+          [{ text: '🏙 Обрати район самостійно', data: 'manual_location' }],
+        ])
       });
 
+    } else if (data === 'request_geo') {
+      await bot.sendMessage(chatId, `📍 Натисни кнопку нижче`, { ...geoKb() });
+
+    // --- Ручний вибір ---
     } else if (data === 'manual_location') {
-      await bot.sendMessage(chatId, `📍 Обери місто:`,
-        inlineKb([
-          [{ text: '🏙 Київ', data: 'city_kyiv' }, { text: '🌳 Київська область', data: 'city_oblast' }]
-        ])
-      );
+      await handleManualLocation(bot, chatId);
 
     } else if (data === 'city_kyiv') {
-      const rows = [];
-      for (let i = 0; i < KYIV_DISTRICTS.length; i += 2) {
-        const row = [{ text: KYIV_DISTRICTS[i].name, data: `district_${i}` }];
-        if (KYIV_DISTRICTS[i+1]) row.push({ text: KYIV_DISTRICTS[i+1].name, data: `district_${i+1}` });
-        rows.push(row);
-      }
-      await bot.sendMessage(chatId, `🏙 Обери район Києва:`, inlineKb(rows));
+      await handleCityKyiv(bot, chatId);
 
     } else if (data === 'city_oblast') {
-      const rows = KYIV_OBLAST_CITIES.map((c, i) => [{ text: c.name, data: `oblast_${i}` }]);
-      await bot.sendMessage(chatId, `🌳 Обери місто:`, inlineKb(rows));
+      await handleCityOblast(bot, chatId);
 
     } else if (data.startsWith('district_')) {
       const idx = parseInt(data.split('_')[1]);
-      const district = KYIV_DISTRICTS[idx];
-      user.session.lat = district.lat;
-      user.session.lng = district.lng;
-      user.step = 'cuisine';
-      await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
-        parse_mode: 'Markdown',
-        ...kb(CUISINE_BUTTONS),
-      });
+      await handleDistrict(bot, chatId, user, idx);
 
     } else if (data.startsWith('oblast_')) {
       const idx = parseInt(data.split('_')[1]);
-      const city = KYIV_OBLAST_CITIES[idx];
-      user.session.lat = city.lat;
-      user.session.lng = city.lng;
+      await handleOblastCity(bot, chatId, user, idx);
+
+    // --- Пошук ---
+    } else if (data === 'retry') {
+      if (!user.session.lat) { await handleManualLocation(bot, chatId); return; }
+      await doSearch(bot, chatId, false);
+
+    } else if (data === 'swap') {
+      if (!user.session.lat) { await handleManualLocation(bot, chatId); return; }
+      await doSearch(bot, chatId, true);
+
+    } else if (data === 'search_extended') {
+      if (!user.session.lat) { await handleManualLocation(bot, chatId); return; }
+      await doSearch(bot, chatId, false, false, true);
+
+    } else if (data === 'kids_filter') {
+      if (!user.session.lat) return;
+      await doSearch(bot, chatId, false, true);
+
+    // --- Назад ---
+    } else if (data === 'back_to_cuisine') {
       user.step = 'cuisine';
-      await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
+      await bot.sendMessage(chatId, `*${randomIntro()}*`, {
         parse_mode: 'Markdown',
         ...kb(CUISINE_BUTTONS),
       });
 
-    } else if (data === 'retry') {
-      if (!user.session.lat) {
-        await bot.sendMessage(chatId, `📍 Обери район:`,
-          inlineKb([[{ text: '🗺 Обрати район вручну', data: 'manual_location' }]]));
-        return;
-      }
-      await doSearch(bot, chatId, false);
+    } else if (data === 'back_to_budget') {
+      user.step = 'budget';
+      await bot.sendMessage(chatId, `💰 *Який бюджет?*`, {
+        parse_mode: 'Markdown',
+        ...kb([...BUDGET_BUTTONS, ['↩️ Назад']]),
+      });
 
-    } else if (data === 'swap') {
-      if (!user.session.lat) {
-        await bot.sendMessage(chatId, `📍 Обери район:`,
-          inlineKb([[{ text: '🗺 Обрати район вручну', data: 'manual_location' }]]));
-        return;
-      }
-      await doSearch(bot, chatId, true);
-
-    } else if (data === 'kids_filter') {
-      if (!user.session.lat) return;
-      await doSearch(bot, chatId, false, true); // isKids = true
-
+    // --- Вибір страви ---
     } else if (data.startsWith('pick_')) {
       const idx = parseInt(data.split('_')[1]);
       const rec = user.lastRecs?.[idx];
@@ -108,28 +100,15 @@ function registerButtons(bot) {
       const emoji = getCuisineEmoji(rec.dish);
       const detailText = `✅ *Чудовий вибір!*\n\n${emoji} *${rec.dish}*\n🏠 ${rec.place}\n💰 ${rec.price} грн  •  📍 ${rec.distKm} км\n\n_${rec.description || ''}_\n\nСмачного! 🍴`;
 
-      const actionButtons = {
+      await bot.sendMessage(chatId, detailText, {
+        parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🗺 Маршрут', url: mapsUrl }, { text: '❤️ Зберегти', callback_data: `save_${idx}` }],
-            [{ text: '🔍 Шукати знову', callback_data: 'new_search' }],
+            [{ text: '📍 Маршрут', url: mapsUrl }, { text: '❤️ Зберегти', callback_data: `save_${idx}` }],
+            [{ text: '🔄 Новий пошук', callback_data: 'new_search' }],
           ]
         }
-      };
-
-      await bot.sendMessage(chatId, detailText, { parse_mode: 'Markdown', ...actionButtons });
-
-      if (!user.isPro && user.searchCount >= 2 && user.searchCount <= 3) {
-        setTimeout(async () => {
-          await bot.sendMessage(chatId,
-            `💡 *Подобається QuickPick?*\n\nЗ PRO:\n∞ Безлімітні підбірки\n🧠 Персональні рекомендації\n❤️ Збережені місця`,
-            { parse_mode: 'Markdown', ...inlineKb([
-              [{ text: '⭐ Дізнатись про PRO', data: 'show_pro' }],
-              [{ text: '🔄 Продовжити безкоштовно', data: 'new_search' }],
-            ]) }
-          );
-        }, 1500);
-      }
+      });
 
     } else if (data.startsWith('save_')) {
       const idx = parseInt(data.split('_')[1]);
@@ -149,35 +128,38 @@ function registerButtons(bot) {
       if (savedLat && savedLng) {
         user.session.lat = savedLat; user.session.lng = savedLng;
         user.step = 'cuisine';
-        await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
+        await bot.sendMessage(chatId, `*${randomIntro()}*`, {
           parse_mode: 'Markdown',
           ...kb(CUISINE_BUTTONS),
         });
       } else {
         user.step = 'location';
-        await bot.sendMessage(chatId, `📍 *Поділись геолокацією*`, { parse_mode: 'Markdown', ...geoKb() });
+        await bot.sendMessage(chatId, `📍 *Як шукаємо?*`, {
+          parse_mode: 'Markdown',
+          ...inlineKb([
+            [{ text: '📍 Поділитися геолокацією', data: 'request_geo' }],
+            [{ text: '🏙 Обрати район самостійно', data: 'manual_location' }],
+          ])
+        });
       }
 
-    } else if (data === 'reset') {
-      user.session = {}; user.step = null; user.lastRecs = [];
-      await bot.sendMessage(chatId, `🔄 Скинуто!`,
-        inlineKb([[{ text: '🚀 Почати', data: 'start_search' }]]));
-
-    } else if (data === 'show_pro' || data === 'pro') {
-      await showPro(bot, chatId);
-
-    } else if (data === 'show_pro_full') {
+    // --- PRO ---
+    } else if (data === 'show_pro') {
       await bot.sendMessage(chatId,
-        `⭐ *QuickPick PRO — повний опис*\n\n∞ *Безлімітні підбірки*\n🧠 *Персональні рекомендації*\n🍷 *AI-підбір напоїв*\n🔥 *Trending nearby*\n💪 *Калорії та БЖУ*\n❤️ *Збережені місця*\n📋 *Історія*\n\n💰 *500 зірок / місяць (~$5)*`,
+        `⭐ *QuickPick PRO*\n\n🧠 AI запамʼятовує твої смаки\n🔥 Що зараз популярне поруч\n🍷 Ідеальний напій до страви\n💪 Калорії та БЖУ\n❤️ Власна колекція місць\n∞ Безлімітні підбірки\n\n💰 *500 зірок / місяць (~10$)*`,
         { parse_mode: 'Markdown', ...inlineKb([
-          [{ text: '🔓 Активувати PRO', data: 'pay' }],
-          [{ text: '↩️ Назад', data: 'new_search' }],
+          [{ text: '🔓 Спробувати PRO', data: 'pay' }],
+          [{ text: '😋 Пізніше', data: 'pro_later' }],
         ]) }
       );
+
+    } else if (data === 'pro_later') {
+      await bot.sendMessage(chatId, `😊 Добре, повернемось до цього пізніше!`);
 
     } else if (data === 'pay') {
       await bot.sendMessage(chatId, `⭐ Оплата активується найближчим часом.\n\nНапиши: @quickpick_support`);
 
+    // --- Профіль ---
     } else if (data === 'all_saved') {
       if (!user.saved.length) { await bot.sendMessage(chatId, `❤️ Збережених немає.`); return; }
       const list = user.saved.map((s, i) => `${i + 1}. *${s.dish}* — ${s.place}`).join('\n');
@@ -196,6 +178,11 @@ function registerButtons(bot) {
     } else if (data === 'clear_saved') {
       user.saved = [];
       await bot.sendMessage(chatId, `✅ Збережені очищено.`);
+
+    } else if (data === 'reset') {
+      user.session = {}; user.step = null; user.lastRecs = [];
+      await bot.sendMessage(chatId, `🔄 Скинуто!`,
+        inlineKb([[{ text: '🚀 Почати', data: 'start_search' }]]));
     }
   });
 }

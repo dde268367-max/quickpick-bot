@@ -7,8 +7,7 @@ function registerCommands(bot) {
   bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     const user = getUser(chatId);
-    user.step = null;
-    user.session = {};
+    user.step = null; user.session = {};
     await bot.sendMessage(chatId,
       `⚡ *Привіт! Я QuickPick*\n\nДопоможу швидко обрати де і що поїсти 🍴`,
       { parse_mode: 'Markdown', ...inlineKb([[{ text: '🚀 Почати', data: 'start_search' }]]) }
@@ -18,31 +17,28 @@ function registerCommands(bot) {
   bot.onText(/\/pick/, async (msg) => {
     const chatId = msg.chat.id;
     const user = getUser(chatId);
-    user.session = {};
-    user.step = 'location';
-    await bot.sendMessage(chatId, `📍 *Поділись геолокацією*`, { parse_mode: 'Markdown', ...geoKb() });
+    user.session = {}; user.step = 'location';
+    await bot.sendMessage(chatId, `📍 *Як шукаємо?*`, {
+      parse_mode: 'Markdown',
+      ...inlineKb([
+        [{ text: '📍 Поділитися геолокацією', data: 'request_geo' }],
+        [{ text: '🏙 Обрати район самостійно', data: 'manual_location' }],
+      ])
+    });
   });
 
-  bot.onText(/\/pro/, async (msg) => {
-    await showPro(bot, msg.chat.id);
-  });
+  bot.onText(/\/pro/, async (msg) => { await showPro(bot, msg.chat.id); });
 
   bot.onText(/\/saved/, async (msg) => {
     const user = getUser(msg.chat.id);
-    if (!user.saved.length) {
-      await bot.sendMessage(msg.chat.id, `❤️ Збережених страв поки немає.`);
-      return;
-    }
+    if (!user.saved.length) { await bot.sendMessage(msg.chat.id, `❤️ Збережених страв поки немає.`); return; }
     const list = user.saved.map((s, i) => `${i + 1}. *${s.dish}* — ${s.place}`).join('\n');
     await bot.sendMessage(msg.chat.id, `❤️ *Збережені:*\n\n${list}`, { parse_mode: 'Markdown' });
   });
 
   bot.onText(/\/history/, async (msg) => {
     const user = getUser(msg.chat.id);
-    if (!user.history.length) {
-      await bot.sendMessage(msg.chat.id, `📋 Історія порожня.`);
-      return;
-    }
+    if (!user.history.length) { await bot.sendMessage(msg.chat.id, `📋 Історія порожня.`); return; }
     const list = user.history.slice(-8).reverse().map((h, i) =>
       `${i + 1}. *${h.dish}* — ${h.place}\n📅 ${new Date(h.date).toLocaleDateString('uk-UA')}`
     ).join('\n\n');
@@ -70,28 +66,19 @@ function registerCommands(bot) {
     );
   });
 
-  // /find Назва — пошук заклаgу в базі
   bot.onText(/\/find (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const query = match[1].toLowerCase().trim();
-
-    const found = Object.values(realMenu).filter(v =>
-      v.name.toLowerCase().includes(query)
-    );
-
+    const found = Object.values(realMenu).filter(v => v.name.toLowerCase().includes(query));
     if (!found.length) {
       await bot.sendMessage(chatId, `❌ Заклад *${match[1]}* не знайдено в базі.`, { parse_mode: 'Markdown' });
       return;
     }
-
     for (const v of found.slice(0, 3)) {
       const dishes = v.menu.slice(0, 10).map(d => `• ${d.name} — ${d.price}₴`).join('\n');
       const coords = v.coords && v.coords[0] && v.coords[1] ? `\n📍 [${v.coords[1]}, ${v.coords[0]}]` : '';
       const extra = v.menu.length > 10 ? `\n\n...та ще ${v.menu.length - 10} страв` : '';
-      await bot.sendMessage(chatId,
-        `✅ *${v.name}*${coords}\n\n${dishes}${extra}`,
-        { parse_mode: 'Markdown' }
-      );
+      await bot.sendMessage(chatId, `✅ *${v.name}*${coords}\n\n${dishes}${extra}`, { parse_mode: 'Markdown' });
     }
   });
 
@@ -99,17 +86,17 @@ function registerCommands(bot) {
     const chatId = msg.chat.id;
     const user = getUser(chatId);
     user.session = {}; user.step = null; user.lastRecs = [];
-    await bot.sendMessage(chatId, `🔄 Скинуто! Починаємо заново.`,
+    await bot.sendMessage(chatId, `🔄 Скинуто!`,
       inlineKb([[{ text: '🚀 Почати', data: 'start_search' }]]));
   });
 }
 
 async function showPro(bot, chatId) {
   await bot.sendMessage(chatId,
-    `⭐ *QuickPick PRO*\n\n∞ Безлімітні підбірки\n🧠 Персональні рекомендації\n❤️ Збережені місця\n📋 Історія виборів\n🔥 Trending nearby\n💪 Калорії та БЖУ\n\n💰 *500 зірок / місяць (~$5)*`,
+    `⭐ *QuickPick PRO*\n\n🧠 AI запамʼятовує твої смаки\n🔥 Що зараз популярне поруч\n🍷 Ідеальний напій до страви\n💪 Калорії та БЖУ\n❤️ Власна колекція місць\n∞ Безлімітні підбірки\n\n💰 *500 зірок / місяць (~10$)*`,
     { parse_mode: 'Markdown', ...inlineKb([
-      [{ text: '🔓 Активувати PRO', data: 'pay' }],
-      [{ text: '📖 Детальніше', data: 'show_pro_full' }],
+      [{ text: '🔓 Спробувати PRO', data: 'pay' }],
+      [{ text: '😋 Пізніше', data: 'pro_later' }],
     ]) }
   );
 }

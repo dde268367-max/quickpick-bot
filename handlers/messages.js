@@ -1,7 +1,8 @@
 const { getUser } = require('../users');
-const { kb, inlineKb, geoKb } = require('../utils');
-const { BUDGET_BUTTONS } = require('../config');
+const { kb, inlineKb } = require('../utils');
+const { BUDGET_BUTTONS, CUISINE_BUTTONS } = require('../config');
 const { doSearch } = require('../search');
+const { randomIntro } = require('./location');
 
 function registerMessages(bot) {
   bot.on('message', async (msg) => {
@@ -16,10 +17,18 @@ function registerMessages(bot) {
       user.step = 'budget';
       await bot.sendMessage(chatId, `💰 *Який бюджет?*`, {
         parse_mode: 'Markdown',
-        ...kb(BUDGET_BUTTONS),
+        ...kb([...BUDGET_BUTTONS, ['↩️ Назад']]),
       });
 
     } else if (user.step === 'budget') {
+      if (text === '↩️ Назад') {
+        user.step = 'cuisine';
+        await bot.sendMessage(chatId, `*${randomIntro()}*`, {
+          parse_mode: 'Markdown',
+          ...kb(CUISINE_BUTTONS),
+        });
+        return;
+      }
       user.session.budget = text;
       user.step = null;
       await doSearch(bot, chatId, false);

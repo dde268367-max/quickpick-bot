@@ -1,10 +1,12 @@
 const { getUser } = require('../users');
 const { kb, inlineKb } = require('../utils');
-const { CUISINE_BUTTONS, KYIV_DISTRICTS, KYIV_OBLAST_CITIES } = require('../config');
+const { CUISINE_BUTTONS, CUISINE_INTROS, KYIV_DISTRICTS, KYIV_OBLAST_CITIES } = require('../config');
+
+function randomIntro() {
+  return CUISINE_INTROS[Math.floor(Math.random() * CUISINE_INTROS.length)];
+}
 
 function registerLocation(bot) {
-
-  // Геолокація від Telegram
   bot.on('location', async (msg) => {
     const chatId = msg.chat.id;
     const user = getUser(chatId);
@@ -14,66 +16,61 @@ function registerLocation(bot) {
     user.session.lng = msg.location.longitude;
     user.step = 'cuisine';
 
-    await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
+    await bot.sendMessage(chatId, `*${randomIntro()}*`, {
       parse_mode: 'Markdown',
       ...kb(CUISINE_BUTTONS),
     });
   });
+}
 
-  // Вибір Київ
-  bot.on('callback_query', async (query) => {
-    const chatId = query.message.chat.id;
-    const user = getUser(chatId);
-    const data = query.data;
+async function handleManualLocation(bot, chatId) {
+  await bot.sendMessage(chatId, `📍 Обери місто:`,
+    inlineKb([
+      [{ text: '🏙 Київ', data: 'city_kyiv' }, { text: '🌳 Київська область', data: 'city_oblast' }]
+    ])
+  );
+}
 
-    if (data === 'manual_location') {
-      await bot.answerCallbackQuery(query.id);
-      await bot.sendMessage(chatId, `📍 Обери місто:`,
-        inlineKb([
-          [{ text: '🏙 Київ', data: 'city_kyiv' }, { text: '🌳 Київська область', data: 'city_oblast' }]
-        ])
-      );
+async function handleCityKyiv(bot, chatId) {
+  const rows = [];
+  for (let i = 0; i < KYIV_DISTRICTS.length; i += 2) {
+    const row = [{ text: KYIV_DISTRICTS[i].name, data: `district_${i}` }];
+    if (KYIV_DISTRICTS[i + 1]) row.push({ text: KYIV_DISTRICTS[i + 1].name, data: `district_${i + 1}` });
+    rows.push(row);
+  }
+  await bot.sendMessage(chatId, `🏙 Обери район Києва:`, inlineKb(rows));
+}
 
-    } else if (data === 'city_kyiv') {
-      await bot.answerCallbackQuery(query.id);
-      const rows = [];
-      for (let i = 0; i < KYIV_DISTRICTS.length; i += 2) {
-        const row = [{ text: KYIV_DISTRICTS[i].name, data: `district_${i}` }];
-        if (KYIV_DISTRICTS[i+1]) row.push({ text: KYIV_DISTRICTS[i+1].name, data: `district_${i+1}` });
-        rows.push(row);
-      }
-      await bot.sendMessage(chatId, `🏙 Обери район Києва:`, inlineKb(rows));
+async function handleCityOblast(bot, chatId) {
+  const rows = [];
+  for (let i = 0; i < KYIV_OBLAST_CITIES.length; i += 2) {
+    const row = [{ text: KYIV_OBLAST_CITIES[i].name, data: `oblast_${i}` }];
+    if (KYIV_OBLAST_CITIES[i + 1]) row.push({ text: KYIV_OBLAST_CITIES[i + 1].name, data: `oblast_${i + 1}` });
+    rows.push(row);
+  }
+  await bot.sendMessage(chatId, `🌳 Обери місто:`, inlineKb(rows));
+}
 
-    } else if (data === 'city_oblast') {
-      await bot.answerCallbackQuery(query.id);
-      const rows = KYIV_OBLAST_CITIES.map((c, i) => [{ text: c.name, data: `oblast_${i}` }]);
-      await bot.sendMessage(chatId, `🌳 Обери місто:`, inlineKb(rows));
-
-    } else if (data.startsWith('district_')) {
-      await bot.answerCallbackQuery(query.id);
-      const idx = parseInt(data.split('_')[1]);
-      const district = KYIV_DISTRICTS[idx];
-      user.session.lat = district.lat;
-      user.session.lng = district.lng;
-      user.step = 'cuisine';
-      await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
-        parse_mode: 'Markdown',
-        ...kb(CUISINE_BUTTONS),
-      });
-
-    } else if (data.startsWith('oblast_')) {
-      await bot.answerCallbackQuery(query.id);
-      const idx = parseInt(data.split('_')[1]);
-      const city = KYIV_OBLAST_CITIES[idx];
-      user.session.lat = city.lat;
-      user.session.lng = city.lng;
-      user.step = 'cuisine';
-      await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
-        parse_mode: 'Markdown',
-        ...kb(CUISINE_BUTTONS),
-      });
-    }
+async function handleDistrict(bot, chatId, user, idx) {
+  const district = KYIV_DISTRICTS[idx];
+  user.session.lat = district.lat;
+  user.session.lng = district.lng;
+  user.step = 'cuisine';
+  await bot.sendMessage(chatId, `*${randomIntro()}*`, {
+    parse_mode: 'Markdown',
+    ...kb(CUISINE_BUTTONS),
   });
 }
 
-module.exports = { registerLocation };
+async function handleOblastCity(bot, chatId, user, idx) {
+  const city = KYIV_OBLAST_CITIES[idx];
+  user.session.lat = city.lat;
+  user.session.lng = city.lng;
+  user.step = 'cuisine';
+  await bot.sendMessage(chatId, `*${randomIntro()}*`, {
+    parse_mode: 'Markdown',
+    ...kb(CUISINE_BUTTONS),
+  });
+}
+
+module.exports = { registerLocation, handleManualLocation, handleCityKyiv, handleCityOblast, handleDistrict, handleOblastCity, randomIntro };
