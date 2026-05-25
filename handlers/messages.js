@@ -1,5 +1,5 @@
 const { getUser } = require('../users');
-const { kb, inlineKb } = require('../utils');
+const { kb, inlineKb, geoKb } = require('../utils');
 const { BUDGET_BUTTONS } = require('../config');
 const { doSearch } = require('../search');
 
@@ -22,7 +22,7 @@ function registerMessages(bot) {
     } else if (user.step === 'budget') {
       user.session.budget = text;
       user.step = null;
-      await doSearch(bot, chatId);
+      await doSearch(bot, chatId, false);
 
     } else {
       await bot.sendMessage(chatId, `Натисни /pick щоб знайти їжу 🍽`,

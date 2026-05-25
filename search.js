@@ -24,11 +24,24 @@ async function askClaude(prompt) {
   }
 }
 
-async function doSearch(bot, chatId, isSwap = false) {
+// Маппінг кнопок кухні до реальних категорій для AI
+function getCuisinePrompt(cuisine) {
+  const map = {
+    '🍝 Щось ситне':          'Ситна їжа — паста, ризото, борщ, вареники, картопля, м\'ясні страви',
+    '🍜 Азія':                 'Азійська кухня — суші, роли, рамен, пад тай, локшина',
+    '🍔 Швидко і смачно':      'Фастфуд — бургери, піца, шаурма, снеки',
+    '☕ Кава і десерт':        'Кава, капучіно, десерти, торти, випічка',
+    '🥩 Мʼясо':               'М\'ясні страви — стейк, гриль, ребра, шашлик',
+    '🎲 Обери за мене':        'Будь-яка кухня — обери найцікавіше і несподіване',
+  };
+  return map[cuisine] || cuisine;
+}
+
+async function doSearch(bot, chatId, isSwap = false, isKids = false) {
   const user = getUser(chatId);
   const s = user.session;
   const budget = getBudgetRange(s.budget);
-  const isKids = s.cuisine === '👶 Дитяче';
+  const isRandom = s.cuisine === '🎲 Обери за мене';
 
   let radius = 1.5;
   let venues = getVenuesInRadius(s.lat, s.lng, radius, budget);
@@ -36,34 +49,43 @@ async function doSearch(bot, chatId, isSwap = false) {
   if (venues.length < 1) { radius = 10; venues = getVenuesInRadius(s.lat, s.lng, radius, budget); }
 
   if (!venues.length) {
-    await bot.sendMessage(chatId, `😔 Нічого не знайшов поруч. Спробуй інший бюджет.`,
-      inlineKb([[{ text: '🔄 Спробувати знову', data: 'retry' }]]));
+    await bot.sendMessage(chatId, `😔 Нічого не знайшов поруч. Спробуй інший район або бюджет.`,
+      inlineKb([
+        [{ text: '📍 Змінити район', data: 'manual_location' }],
+        [{ text: '🔄 Спробувати знову', data: 'retry' }]
+      ]));
     return;
   }
 
-  await bot.sendMessage(chatId, `😏 Є кілька ідей... секунду`);
+  // Особливий текст для "Обери за мене"
+  if (isRandom) {
+    await bot.sendMessage(chatId, `😏 Ох, ми вже настільки довіряємо одне одному. Шукаю...`);
+  } else {
+    await bot.sendMessage(chatId, `😏 Є кілька ідей... секунду`);
+  }
 
   const venueList = venues.slice(0, 15).map(v => {
     const dishes = v.filteredMenu.slice(0, 5).map(d => `${d.name} (${d.price}₴)`).join(', ');
     return `${v.name} (${v.distKm}км): ${dishes}`;
   }).join('\n');
 
-  const kidsNote = isKids ? '\nВажливо: тільки дитячі страви — без гострого, без алкоголю.' : '';
+  const cuisineDesc = getCuisinePrompt(s.cuisine);
+  const kidsNote = isKids ? '\nВАЖЛИВО: підбирай ТІЛЬКИ дитячі страви — без гострого, без алкоголю, легкі та прості.' : '';
   const swapNote = isSwap && user.lastRecs?.length
     ? `\nВАЖЛИВО: попередні варіанти були: ${user.lastRecs.map(r => r.place + ' / ' + r.dish).join(', ')}. Обери КАРДИНАЛЬНО інші заклади та страви!`
     : '';
 
   const prompt = `Ти QuickPick — AI-помічник для вибору їжі. Обери 3 найкращі варіанти.
 
-Кухня: ${s.cuisine}
+Категорія: ${cuisineDesc}
 Бюджет: ${budget.label}${kidsNote}${swapNote}
 Заклади поруч:
 ${venueList}
 
 Обери КОНКРЕТНУ страву з меню вище для кожного закладу.
-Reason — коротка жива фраза 5-8 слів, чіпляюча і апетитна.
-Description — 1 речення про страву, смачно і коротко.
-Hook — 1 коротка емоційна фраза чому саме зараз це треба спробувати.
+reason — коротка жива фраза 5-8 слів, чіпляюча і апетитна.
+description — 1 речення про страву, смачно і коротко.
+hook — 1 коротка емоційна фраза чому саме зараз це треба спробувати.
 
 Відповідь ТІЛЬКИ JSON:
 [
@@ -105,17 +127,19 @@ Hook — 1 коротка емоційна фраза чому саме зара
   for (let i = 0; i < Math.min(recs.length, 3); i++) {
     const r = recs[i];
     const emoji = getCuisineEmoji(r.dish);
-
-    // Красива картка без фото
     const divider = '─────────────────';
+
     const text = `${emoji} *${r.dish}*\n${divider}\n🏠 ${r.place}\n💰 ${r.price} грн  •  📍 ${r.distKm} км\n\n_${r.description}_\n\n💬 _${r.hook}_\n\n✨ ${r.reason}`;
 
-    // Кнопки: під 1 і 2 — тільки "Хочу це!", під 3 — "Хочу це!" і "Інші варіанти"
+    // Кнопки: 1 і 2 — тільки "Хочу це!", 3 — + "Інші варіанти"
     let buttons;
     if (i < 2) {
       buttons = inlineKb([[{ text: '🙌 Хочу це!', data: `pick_${i}` }]]);
     } else {
-      buttons = inlineKb([[{ text: '🙌 Хочу це!', data: `pick_${i}` }, { text: '🔀 Інші варіанти', data: 'swap' }]]);
+      buttons = inlineKb([
+        [{ text: '🙌 Хочу це!', data: `pick_${i}` }, { text: '🔀 Інші варіанти', data: 'swap' }],
+        [{ text: '👶 Показати варіанти для дітей', data: 'kids_filter' }],
+      ]);
     }
 
     await bot.sendMessage(chatId, text, {

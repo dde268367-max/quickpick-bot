@@ -2,7 +2,7 @@ const { getUser } = require('../users');
 const { getCuisineEmoji, inlineKb, geoKb, kb } = require('../utils');
 const { doSearch } = require('../search');
 const { showPro } = require('./commands');
-const { CUISINE_BUTTONS } = require('../config');
+const { CUISINE_BUTTONS, KYIV_DISTRICTS, KYIV_OBLAST_CITIES } = require('../config');
 
 function registerButtons(bot) {
   bot.on('callback_query', async (query) => {
@@ -10,27 +10,92 @@ function registerButtons(bot) {
     const user = getUser(chatId);
     const data = query.data;
 
+    // location.js також слухає callback_query — пропускаємо його події тут
+    if (['manual_location','city_kyiv','city_oblast'].includes(data) ||
+        data.startsWith('district_') || data.startsWith('oblast_')) return;
+
     await bot.answerCallbackQuery(query.id);
 
     if (data === 'start_search') {
       user.session = {}; user.step = 'location';
-      await bot.sendMessage(chatId, `📍 *Поділись геолокацією*`, { parse_mode: 'Markdown', ...geoKb() });
+      await bot.sendMessage(chatId,
+        `📍 *Поділись геолокацією або обери район вручну*`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            keyboard: [[{ text: '📍 Поділитись геолокацією', request_location: true }]],
+            resize_keyboard: true,
+            one_time_keyboard: true,
+          }
+        }
+      );
+      // Через секунду показуємо inline-кнопку для ручного вибору
+      setTimeout(async () => {
+        await bot.sendMessage(chatId, `або`,
+          inlineKb([[{ text: '🗺 Обрати район вручну', data: 'manual_location' }]]));
+      }, 500);
+
+    } else if (data === 'manual_location') {
+      await bot.sendMessage(chatId, `📍 Обери місто:`,
+        inlineKb([
+          [{ text: '🏙 Київ', data: 'city_kyiv' }, { text: '🌳 Київська область', data: 'city_oblast' }]
+        ])
+      );
+
+    } else if (data === 'city_kyiv') {
+      const rows = [];
+      for (let i = 0; i < KYIV_DISTRICTS.length; i += 2) {
+        const row = [{ text: KYIV_DISTRICTS[i].name, data: `district_${i}` }];
+        if (KYIV_DISTRICTS[i+1]) row.push({ text: KYIV_DISTRICTS[i+1].name, data: `district_${i+1}` });
+        rows.push(row);
+      }
+      await bot.sendMessage(chatId, `🏙 Обери район Києва:`, inlineKb(rows));
+
+    } else if (data === 'city_oblast') {
+      const rows = KYIV_OBLAST_CITIES.map((c, i) => [{ text: c.name, data: `oblast_${i}` }]);
+      await bot.sendMessage(chatId, `🌳 Обери місто:`, inlineKb(rows));
+
+    } else if (data.startsWith('district_')) {
+      const idx = parseInt(data.split('_')[1]);
+      const district = KYIV_DISTRICTS[idx];
+      user.session.lat = district.lat;
+      user.session.lng = district.lng;
+      user.step = 'cuisine';
+      await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
+        parse_mode: 'Markdown',
+        ...kb(CUISINE_BUTTONS),
+      });
+
+    } else if (data.startsWith('oblast_')) {
+      const idx = parseInt(data.split('_')[1]);
+      const city = KYIV_OBLAST_CITIES[idx];
+      user.session.lat = city.lat;
+      user.session.lng = city.lng;
+      user.step = 'cuisine';
+      await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
+        parse_mode: 'Markdown',
+        ...kb(CUISINE_BUTTONS),
+      });
 
     } else if (data === 'retry') {
       if (!user.session.lat) {
-        user.step = 'location';
-        await bot.sendMessage(chatId, `📍 Поділись геолокацією`, geoKb());
+        await bot.sendMessage(chatId, `📍 Обери район:`,
+          inlineKb([[{ text: '🗺 Обрати район вручну', data: 'manual_location' }]]));
         return;
       }
       await doSearch(bot, chatId, false);
 
     } else if (data === 'swap') {
       if (!user.session.lat) {
-        user.step = 'location';
-        await bot.sendMessage(chatId, `📍 Поділись геолокацією`, geoKb());
+        await bot.sendMessage(chatId, `📍 Обери район:`,
+          inlineKb([[{ text: '🗺 Обрати район вручну', data: 'manual_location' }]]));
         return;
       }
-      await doSearch(bot, chatId, true); // true = swap mode, кардинально інші
+      await doSearch(bot, chatId, true);
+
+    } else if (data === 'kids_filter') {
+      if (!user.session.lat) return;
+      await doSearch(bot, chatId, false, true); // isKids = true
 
     } else if (data.startsWith('pick_')) {
       const idx = parseInt(data.split('_')[1]);
@@ -92,7 +157,7 @@ function registerButtons(bot) {
       if (savedLat && savedLng) {
         user.session.lat = savedLat; user.session.lng = savedLng;
         user.step = 'cuisine';
-        await bot.sendMessage(chatId, `🍽 *Що хочеться сьогодні?*`, {
+        await bot.sendMessage(chatId, `😋 *Ну що, чого хочеться?*`, {
           parse_mode: 'Markdown',
           ...kb(CUISINE_BUTTONS),
         });
