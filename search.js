@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { ANTHROPIC_KEY, SEARCH_MESSAGES } = require('./config');
-const { getUser, recordTaste } = require('./users');
+const { getUser, recordTaste, getTopCuisines, getLastChoice } = require('./users');
 const { getBudgetRange, getVenuesInRadius, findDishPhoto, distanceText } = require('./menu');
 const { getCuisineEmoji, inlineKb } = require('./utils');
 
@@ -24,22 +24,39 @@ async function askClaude(prompt) {
   }
 }
 
+// PRO: Calories через AI (базово)
+async function getCalories(dish, place) {
+  try {
+    const res = await askClaude(`Страва: "${dish}" з закладу "${place}". Дай тільки JSON без коментарів: {"kcal":500,"protein":25,"fat":20,"carbs":40}`);
+    if (!res) return null;
+    const match = res.match(/\{[\s\S]*\}/);
+    return match ? JSON.parse(match[0]) : null;
+  } catch { return null; }
+}
+
+// PRO: Pair recommendation
+async function getPairRec(dish) {
+  try {
+    const res = await askClaude(`До страви "${dish}" порадь 1 напій або доповнення. Відповідь ТІЛЬКИ JSON: {"pair":"назва","reason":"коротко чому"}`);
+    if (!res) return null;
+    const match = res.match(/\{[\s\S]*\}/);
+    return match ? JSON.parse(match[0]) : null;
+  } catch { return null; }
+}
+
 async function doSearch(bot, chatId, isSwap = false, isKids = false, extendedRadius = false) {
   const user = getUser(chatId);
   const s = user.session;
   const budget = getBudgetRange(s.budget);
   const isRandom = s.cuisine === '🎲 Обери за мене';
   const cuisine = isKids ? 'kids' : s.cuisine;
+  const isPro = user.isPro;
 
-  // Радіус: ручний район = макс 3км, гео = 1.5км
   const isManualDistrict = s.isManualDistrict;
   let radius = extendedRadius ? 10 : (isManualDistrict ? 3 : 1.5);
-
   let venues = getVenuesInRadius(s.lat, s.lng, radius, budget, cuisine);
-
-  // Якщо мало — розширюємо тільки для гео (не для ручного)
-  if (!extendedRadius && !isManualDistrict) {
-    if (venues.length < 3) venues = getVenuesInRadius(s.lat, s.lng, 3, budget, cuisine);
+  if (!extendedRadius && !isManualDistrict && venues.length < 3) {
+    venues = getVenuesInRadius(s.lat, s.lng, 3, budget, cuisine);
   }
 
   if (!venues.length) {
@@ -52,47 +69,64 @@ async function doSearch(bot, chatId, isSwap = false, isKids = false, extendedRad
     return;
   }
 
-  // Повідомлення під час пошуку
-  if (isRandom) {
+  // Повідомлення пошуку
+  if (isRandom && isPro) {
+    await bot.sendMessage(chatId, `🎯 Підбираю на основі твоїх смаків...`);
+  } else if (isRandom) {
     await bot.sendMessage(chatId, `😏 Ох... ми вже настільки довіряємо одне одному?\nШукаю...`);
   } else {
     const msg = SEARCH_MESSAGES[Math.floor(Math.random() * SEARCH_MESSAGES.length)];
     await bot.sendMessage(chatId, msg);
   }
 
-  // Записуємо смаки
   recordTaste(user, s.cuisine, s.districtName);
 
-  // Беремо різноманітні заклади — не більше 1 страви з одного закладу
+  // Diversity: не повторювати заклади з попереднього пошуку
   const usedPlaces = new Set(isSwap && user.lastRecs ? user.lastRecs.map(r => r.place) : []);
-  const diverseVenues = venues.filter(v => !usedPlaces.has(v.name)).slice(0, 12);
-  const finalVenues = diverseVenues.length >= 3 ? diverseVenues : venues.slice(0, 12);
+  let finalVenues = venues.filter(v => !usedPlaces.has(v.name));
+  if (finalVenues.length < 3) finalVenues = venues;
+  finalVenues = finalVenues.slice(0, 12);
 
-  // AI отримує тільки вже відфільтровані страви
+  // PRO: Hidden gems — заклади яких немає в топ-збережених
+  let hiddenGems = [];
+  if (isPro) {
+    const popularPlaces = new Set(user.saved.map(s => s.place));
+    hiddenGems = finalVenues.filter(v => !popularPlaces.has(v.name)).slice(0, 3).map(v => v.name);
+  }
+
+  // PRO: Taste memory — враховуємо улюблені кухні
+  const topCuisines = getTopCuisines(user, 2);
+  const tasteNote = isPro && topCuisines.length && isRandom
+    ? `\nУлюблені кухні цього користувача: ${topCuisines.join(', ')}. Враховуй це.`
+    : '';
+
   const venueList = finalVenues.map(v => {
     const dishes = v.filteredMenu.slice(0, 4).map(d => `${d.name} (${d.price}₴)`).join(', ');
-    return `${v.name}: ${dishes}`;
+    const gem = hiddenGems.includes(v.name) ? ' [hidden gem]' : '';
+    return `${v.name}${gem}: ${dishes}`;
   }).join('\n');
 
   const swapNote = isSwap && user.lastRecs?.length
-    ? `\nВАЖЛИВО: обери ІНШІ заклади! Попередні: ${user.lastRecs.map(r => r.place).join(', ')}`
+    ? `\nОбери ІНШІ заклади! Попередні: ${user.lastRecs.map(r => r.place).join(', ')}`
     : '';
 
-  const prompt = `Ти QuickPick — вибираєш їжу для людини. Обери 3 варіанти з різних закладів.
+  const prompt = `Ти QuickPick — вибираєш їжу. Обери 3 варіанти з РІЗНИХ закладів.
 
-Бюджет: ${budget.label}${swapNote}
+Бюджет: ${budget.label}${tasteNote}${swapNote}
+${hiddenGems.length ? `\nЗаклади з [hidden gem] — менш відомі, але варті уваги. Включи хоча б один.` : ''}
 
-Заклади і страви (вже відфільтровані, вибирай тільки з цього списку):
+Заклади (вибирай ТІЛЬКИ з цього списку):
 ${venueList}
 
 Для кожного:
-- place: точна назва закладу
-- dish: точна назва страви з меню вище
-- price: точна ціна з меню вище (не придумуй!)
-- reason: жива фраза 4-6 слів, без пафосу. Типу "Ситно і дуже в тему" або "Тут реально класно"
-- description: 1 просте речення про страву
+- place: точна назва
+- dish: точна назва страви
+- price: точна ціна (не придумуй!)
+- reason: жива фраза 4-6 слів без пафосу
+- description: 1 просте речення
+${hiddenGems.length ? '- isGem: true якщо це hidden gem, інакше false' : ''}
 
-ТІЛЬКИ JSON, без коментарів:
+ТІЛЬКИ JSON:
 [{"place":"...","dish":"...","price":0,"reason":"...","description":"..."},{"place":"...","dish":"...","price":0,"reason":"...","description":"..."},{"place":"...","dish":"...","price":0,"reason":"...","description":"..."}]`;
 
   const reply = await askClaude(prompt);
@@ -106,44 +140,38 @@ ${venueList}
   try {
     const match = reply.match(/\[[\s\S]*\]/);
     if (match) recs = JSON.parse(match[0]);
-  } catch (e) {
-    console.error('[doSearch] parse error:', e.message);
-  }
+  } catch (e) { console.error('[doSearch] parse error:', e.message); }
 
   if (!recs.length) {
-    await bot.sendMessage(chatId, `😔 Не вдалось отримати рекомендації. Спробуй ще раз.`,
-      inlineKb([[{ text: '🔄 Повторити', data: 'retry' }]]));
+    await bot.sendMessage(chatId, `😔 Спробуй ще раз.`, inlineKb([[{ text: '🔄 Повторити', data: 'retry' }]]));
     return;
   }
 
-  // Підставляємо реальні дані — ціну і дистанцію з бекенду
+  // Підставляємо реальні дані з бекенду
   recs = recs.map(r => {
     const venue = finalVenues.find(v => v.name === r.place) || venues.find(v => v.name === r.place);
     if (!venue) return null;
     const realDish = venue.filteredMenu.find(d => d.name === r.dish)
-      || venue.filteredMenu.find(d => d.name.toLowerCase().includes(r.dish.toLowerCase()))
+      || venue.filteredMenu.find(d => d.name.toLowerCase().includes((r.dish || '').toLowerCase()))
       || venue.filteredMenu[0];
     const { photo } = findDishPhoto(venue, r.dish);
-    const distText = distanceText(venue.distKm, s.districtName);
     return {
       ...r,
-      dish: realDish?.name || r.dish,
-      price: realDish?.price || r.price, // реальна ціна з меню
-      distText,
+      dish:     realDish?.name || r.dish,
+      price:    realDish?.price || r.price,
+      distText: distanceText(venue.distKm, s.districtName),
+      distKm:   venue.distKm,
       photo,
-      lat: venue.lat,
-      lng: venue.lng,
-      address: venue.address,
+      lat:      venue.lat,
+      lng:      venue.lng,
+      address:  venue.address,
+      isGem:    hiddenGems.includes(r.place),
     };
   }).filter(Boolean);
 
-  // Прибираємо дублікати закладів
-  const seenPlaces = new Set();
-  recs = recs.filter(r => {
-    if (seenPlaces.has(r.place)) return false;
-    seenPlaces.add(r.place);
-    return true;
-  }).slice(0, 3);
+  // Прибираємо дублікати
+  const seen = new Set();
+  recs = recs.filter(r => { if (seen.has(r.place)) return false; seen.add(r.place); return true; }).slice(0, 3);
 
   if (!recs.length) {
     await bot.sendMessage(chatId, `😔 Спробуй ще раз.`, inlineKb([[{ text: '🔄 Повторити', data: 'retry' }]]));
@@ -153,11 +181,29 @@ ${venueList}
   user.lastRecs = recs;
   user.searchCount = (user.searchCount || 0) + 1;
 
+  // PRO: Smart Repeat підказка
+  if (isPro) {
+    const last = getLastChoice(user);
+    if (last && user.searchCount > 1) {
+      await bot.sendMessage(chatId,
+        `🔁 _До речі, минулого разу ти обирав *${last.dish}* у *${last.place}*. Хочеш повторити?_`,
+        { parse_mode: 'Markdown', ...inlineKb([[{ text: '🔁 Так, повторити', data: 'repeat_last' }, { text: 'Ні, далі', data: 'skip_repeat' }]]) }
+      );
+      user.session.pendingRecs = recs;
+      return;
+    }
+  }
+
+  await sendRecs(bot, chatId, user, recs, isPro);
+}
+
+async function sendRecs(bot, chatId, user, recs, isPro) {
   for (let i = 0; i < recs.length; i++) {
     const r = recs[i];
     const emoji = getCuisineEmoji(r.dish);
+    const gemBadge = r.isGem ? '\n👀 _Місце, яке часто пропускають_' : '';
     const divider = '─────────────────';
-    const text = `${emoji} *${r.dish}*\n${divider}\n🏠 ${r.place}\n💰 ${r.price} грн  •  📍 ${r.distText}\n\n_${r.description}_\n\n✨ ${r.reason}`;
+    const text = `${emoji} *${r.dish}*\n${divider}\n🏠 ${r.place}\n💰 ${r.price} грн  •  📍 ${r.distText}${gemBadge}\n\n_${r.description}_\n\n✨ ${r.reason}`;
 
     let buttons;
     if (i < 2) {
@@ -180,13 +226,13 @@ ${venueList}
     setTimeout(async () => {
       await bot.sendMessage(chatId,
         `😏 Здається, ми вже непогано знаємо твій смак.\n\nХочеш, щоб QuickPick підбирав ще точніше?`,
-        { ...inlineKb([
+        inlineKb([
           [{ text: '⭐ Спробувати PRO безкоштовно', data: 'activate_trial' }],
           [{ text: '😋 Пізніше', data: 'pro_later' }],
-        ]) }
+        ])
       );
     }, 2000);
   }
 }
 
-module.exports = { doSearch };
+module.exports = { doSearch, sendRecs, getCalories, getPairRec };
