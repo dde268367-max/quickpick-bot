@@ -9,7 +9,7 @@ function randomIntro() {
 function registerLocation(bot) {
   bot.on('location', async (msg) => {
     const chatId = msg.chat.id;
-    const user = getUser(chatId);
+    const user = await getUser(chatId); // await!
     if (user.step !== 'location') return;
 
     user.session.lat = msg.location.latitude;
