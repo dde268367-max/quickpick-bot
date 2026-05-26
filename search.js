@@ -130,7 +130,10 @@ async function getPairRec(dish, venueMenu) {
       instruction = 'Це страва. Порадь напій до неї. НЕ пропонуй іншу їжу.';
     }
 
-    const items = (filtered.length > 0 ? filtered : all).slice(0, 8);
+    // Якщо фільтр дав 0 результатів — AI вибирає сам з усього меню
+    const useFiltered = filtered.length > 0;
+    const items = (useFiltered ? filtered : all).slice(0, 8);
+    if (!useFiltered) instruction = 'Порадь найкраще доповнення до цієї страви з наявного меню.';
     const menuStr = items.map(d => `${d.name}(${d.price}грн)`).join(', ');
     const menuNote = menuStr ? ` Меню: ${menuStr}.` : '';
 
