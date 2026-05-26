@@ -34,10 +34,15 @@ async function getCalories(dish, place) {
   } catch { return null; }
 }
 
-// PRO: Pair recommendation
-async function getPairRec(dish) {
+// PRO: Pair recommendation з меню закладу
+async function getPairRec(dish, venueMenu) {
   try {
-    const res = await askClaude(`До страви "${dish}" порадь 1 напій або доповнення. Відповідь ТІЛЬКИ JSON: {"pair":"назва","reason":"коротко чому"}`);
+    const menuStr = venueMenu ? venueMenu.map(d => `${d.name} (${d.price}₴)`).join(', ') : '';
+    const menuNote = menuStr ? `
+Меню закладу: ${menuStr}
+Обирай тільки з цього меню якщо є підходящий варіант.` : '';
+    const res = await askClaude(`До страви "${dish}" порадь 1 напій або доповнення.${menuNote}
+Відповідь ТІЛЬКИ JSON: {"pair":"назва","reason":"коротко чому (1 речення)"}`);
     if (!res) return null;
     const match = res.match(/\{[\s\S]*\}/);
     return match ? JSON.parse(match[0]) : null;
@@ -181,13 +186,14 @@ ${hiddenGems.length ? '- isGem: true якщо це hidden gem, інакше fals
   user.lastRecs = recs;
   user.searchCount = (user.searchCount || 0) + 1;
 
-  // PRO: Smart Repeat підказка
-  if (isPro) {
+  // PRO: Smart Repeat — тільки якщо минуло >6 годин і не дитяче меню
+  if (isPro && !isKids) {
     const last = getLastChoice(user);
-    if (last && user.searchCount > 1) {
+    const sixHours = 6 * 60 * 60 * 1000;
+    if (last && user.searchCount > 2 && (Date.now() - last.date) > sixHours) {
       await bot.sendMessage(chatId,
-        `🔁 _До речі, минулого разу ти обирав *${last.dish}* у *${last.place}*. Хочеш повторити?_`,
-        { parse_mode: 'Markdown', ...inlineKb([[{ text: '🔁 Так, повторити', data: 'repeat_last' }, { text: 'Ні, далі', data: 'skip_repeat' }]]) }
+        `🔁 _Минулого разу ти обирав *${last.dish}* у *${last.place}*. Повторити?_`,
+        { parse_mode: 'Markdown', ...inlineKb([[{ text: '🔁 Так', data: 'repeat_last' }, { text: 'Ні, далі', data: 'skip_repeat' }]]) }
       );
       user.session.pendingRecs = recs;
       return;
@@ -219,6 +225,7 @@ async function sendRecs(bot, chatId, user, recs, isPro) {
     }
 
     await bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...buttons });
+    await new Promise(r => setTimeout(r, 300)); // пауза між картками
   }
 
   // PRO після 3-5 пошуків

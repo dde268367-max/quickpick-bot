@@ -146,7 +146,10 @@ function registerButtons(bot) {
       const rec = user.lastRecs?.[idx];
       if (!rec) return;
       await bot.sendMessage(chatId, `🍷 Шукаю ідеальну пару...`);
-      const pair = await getPairRec(rec.dish);
+      const { realMenu } = require('../menu');
+      const venueKey = Object.keys(realMenu).find(k => realMenu[k].name === rec.place);
+      const venueMenu = venueKey ? realMenu[venueKey].menu : [];
+      const pair = await getPairRec(rec.dish, venueMenu);
       if (pair) {
         await bot.sendMessage(chatId, `🍷 До *${rec.dish}* ідеально підійде:\n\n*${pair.pair}*\n_${pair.reason}_`, { parse_mode: 'Markdown' });
       } else {
@@ -222,8 +225,9 @@ function registerButtons(bot) {
       profileText += `\n📋 *Останні вибори:*\n${lastHistory}`;
 
       const profileButtons = [
-        [{ text: '🔄 Новий пошук', callback_data: 'new_search' }, { text: '❤️ Збережені', callback_data: 'all_saved' }],
-        [{ text: '📋 Вся історія', callback_data: 'all_history' }, { text: '🎲 Здивуй мене', callback_data: 'surprise_me' }],
+        [{ text: '🔄 Новий пошук', callback_data: 'new_search' }, { text: '📍 Змінити район', callback_data: 'change_district' }],
+        [{ text: '❤️ Збережені', callback_data: 'all_saved' }, { text: '📋 Вся історія', callback_data: 'all_history' }],
+        [{ text: '🎲 Здивуй мене', callback_data: 'surprise_me' }],
       ];
       if (!user.isPro && !user.hasUsedTrial) {
         profileButtons.push([{ text: '⭐ Спробувати PRO', callback_data: 'activate_trial' }]);
@@ -233,6 +237,10 @@ function registerButtons(bot) {
         parse_mode: 'Markdown',
         reply_markup: { inline_keyboard: profileButtons }
       });
+
+    } else if (data === 'change_district') {
+      user.session = {}; user.step = 'location';
+      await handleManualLocation(bot, chatId);
 
     } else if (data === 'activate_trial') {
       const ok = activateTrial(chatId);
