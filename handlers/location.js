@@ -14,6 +14,7 @@ function registerLocation(bot) {
 
     user.session.lat = msg.location.latitude;
     user.session.lng = msg.location.longitude;
+    user.session.isManualDistrict = false;
     user.step = 'cuisine';
 
     await bot.sendMessage(chatId, `*${randomIntro()}*`, {
@@ -26,7 +27,8 @@ function registerLocation(bot) {
 async function handleManualLocation(bot, chatId) {
   await bot.sendMessage(chatId, `📍 Обери місто:`,
     inlineKb([
-      [{ text: '🏙 Київ', data: 'city_kyiv' }, { text: '🌳 Київська область', data: 'city_oblast' }]
+      [{ text: '🏙 Київ', data: 'city_kyiv' }, { text: '🌳 Київська область', data: 'city_oblast' }],
+      [{ text: '↩️ Назад', data: 'start_search' }],
     ])
   );
 }
@@ -38,6 +40,7 @@ async function handleCityKyiv(bot, chatId) {
     if (KYIV_DISTRICTS[i + 1]) row.push({ text: KYIV_DISTRICTS[i + 1].name, data: `district_${i + 1}` });
     rows.push(row);
   }
+  rows.push([{ text: '↩️ Назад', data: 'manual_location' }]);
   await bot.sendMessage(chatId, `🏙 Обери район Києва:`, inlineKb(rows));
 }
 
@@ -48,6 +51,7 @@ async function handleCityOblast(bot, chatId) {
     if (KYIV_OBLAST_CITIES[i + 1]) row.push({ text: KYIV_OBLAST_CITIES[i + 1].name, data: `oblast_${i + 1}` });
     rows.push(row);
   }
+  rows.push([{ text: '↩️ Назад', data: 'manual_location' }]);
   await bot.sendMessage(chatId, `🌳 Обери місто:`, inlineKb(rows));
 }
 
@@ -55,6 +59,8 @@ async function handleDistrict(bot, chatId, user, idx) {
   const district = KYIV_DISTRICTS[idx];
   user.session.lat = district.lat;
   user.session.lng = district.lng;
+  user.session.districtName = district.name;
+  user.session.isManualDistrict = true;
   user.step = 'cuisine';
   await bot.sendMessage(chatId, `*${randomIntro()}*`, {
     parse_mode: 'Markdown',
@@ -66,6 +72,8 @@ async function handleOblastCity(bot, chatId, user, idx) {
   const city = KYIV_OBLAST_CITIES[idx];
   user.session.lat = city.lat;
   user.session.lng = city.lng;
+  user.session.districtName = city.name;
+  user.session.isManualDistrict = true;
   user.step = 'cuisine';
   await bot.sendMessage(chatId, `*${randomIntro()}*`, {
     parse_mode: 'Markdown',

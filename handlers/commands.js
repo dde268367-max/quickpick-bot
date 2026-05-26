@@ -1,5 +1,5 @@
-const { getUser } = require('../users');
-const { inlineKb, geoKb } = require('../utils');
+const { getUser, getProStatus, getTastePhrase, getTopCuisines } = require('../users');
+const { inlineKb } = require('../utils');
 const { realMenu } = require('../menu');
 
 function registerCommands(bot) {
@@ -9,7 +9,7 @@ function registerCommands(bot) {
     const user = getUser(chatId);
     user.step = null; user.session = {};
     await bot.sendMessage(chatId,
-      `⚡ *Привіт! Я QuickPick*\n\nДопоможу швидко обрати де і що поїсти 🍴`,
+      `⚡ *Привіт! Я QuickPick*\n\nДопоможу швидко обрати де і що поїсти 🍴\n\n❤️ Ти один із перших користувачів QuickPick`,
       { parse_mode: 'Markdown', ...inlineKb([[{ text: '🚀 Почати', data: 'start_search' }]]) }
     );
   });
@@ -48,22 +48,39 @@ function registerCommands(bot) {
   bot.onText(/\/profile/, async (msg) => {
     const chatId = msg.chat.id;
     const user = getUser(chatId);
-    const savedList = user.saved.length
-      ? user.saved.slice(-5).map((s, i) => `${i + 1}. ${s.dish} — ${s.place}`).join('\n')
-      : 'Немає збережених';
-    const historyList = user.history.length
-      ? user.history.slice(-5).reverse().map((h, i) =>
-          `${i + 1}. ${h.dish} — ${h.place}\n📅 ${new Date(h.date).toLocaleDateString('uk-UA')}`
-        ).join('\n')
-      : 'Ще нічого не вибирав';
-    const status = user.isPro ? '⭐ PRO' : '🆓 Безкоштовно';
-    await bot.sendMessage(chatId,
-      `👤 *Мій профіль*\n\nСтатус: ${status}\nПошуків: ${user.searchCount || 0}\n\n❤️ *Збережені (останні 5):*\n${savedList}\n\n📋 *Історія (останні 5):*\n${historyList}`,
-      { parse_mode: 'Markdown', ...inlineKb([
-        [{ text: '❤️ Всі збережені', data: 'all_saved' }, { text: '📋 Вся історія', data: 'all_history' }],
-        [{ text: '🚫 Очистити збережені', data: 'clear_saved' }],
-      ]) }
-    );
+
+    const proStatus = getProStatus(user);
+    const status = proStatus
+      ? `⭐ PRO ACTIVE · До ${proStatus.expiresDate}`
+      : (user.isPro ? '⭐ PRO' : '🆓 Безкоштовно');
+
+    const topCuisines = getTopCuisines(user, 3);
+    const cuisineStr = topCuisines.length ? topCuisines.join(', ') : 'Ще не визначились';
+
+    const tastePhrase = getTastePhrase(user);
+
+    const savedCount = user.saved.length;
+    const searchCount = user.searchCount || 0;
+
+    const lastHistory = user.history.slice(-3).reverse().map(h =>
+      `• *${h.dish}* — ${h.place}`
+    ).join('\n') || 'Поки нічого';
+
+    let profileText = `👤 *Мій профіль*\n\n`;
+    profileText += `⭐ Статус: ${status}\n`;
+    profileText += `🔍 Пошуків: ${searchCount}\n`;
+    profileText += `❤️ Збережено: ${savedCount}\n\n`;
+    if (topCuisines.length) profileText += `🍽 Улюблені кухні: ${cuisineStr}\n`;
+    if (tastePhrase) profileText += `🎯 Твій смак: _${tastePhrase}_\n`;
+    profileText += `\n📋 *Останні вибори:*\n${lastHistory}`;
+
+    await bot.sendMessage(chatId, profileText, {
+      parse_mode: 'Markdown',
+      ...inlineKb([
+        [{ text: '🔄 Новий пошук', data: 'start_search' }, { text: '❤️ Збережені', data: 'all_saved' }],
+        [{ text: '📋 Вся історія', data: 'all_history' }, { text: '🎲 Здивуй мене', data: 'surprise_me' }],
+      ])
+    });
   });
 
   bot.onText(/\/find (.+)/, async (msg, match) => {
@@ -71,7 +88,7 @@ function registerCommands(bot) {
     const query = match[1].toLowerCase().trim();
     const found = Object.values(realMenu).filter(v => v.name.toLowerCase().includes(query));
     if (!found.length) {
-      await bot.sendMessage(chatId, `❌ Заклад *${match[1]}* не знайдено в базі.`, { parse_mode: 'Markdown' });
+      await bot.sendMessage(chatId, `❌ *${match[1]}* не знайдено в базі.`, { parse_mode: 'Markdown' });
       return;
     }
     for (const v of found.slice(0, 3)) {
@@ -93,9 +110,9 @@ function registerCommands(bot) {
 
 async function showPro(bot, chatId) {
   await bot.sendMessage(chatId,
-    `⭐ *QuickPick PRO*\n\n🧠 AI запамʼятовує твої смаки\n🔥 Що зараз популярне поруч\n🍷 Ідеальний напій до страви\n💪 Калорії та БЖУ\n❤️ Власна колекція місць\n∞ Безлімітні підбірки\n\n💰 *500 зірок / місяць (~10$)*`,
+    `⭐ *QuickPick PRO*\n\n🧠 Персональні рекомендації\n🔥 Що зараз популярне поруч\n❤️ Smart favorites\n🔁 Повтор минулих виборів\n🍷 Pair recommendations\n👀 Hidden gems\n💪 Калорії та БЖУ\n🎯 Smarter "Обери за мене"\n📋 Food profile\n∞ Безлімітні підбірки\n\n💰 *500 зірок / місяць (~10$)*\n\n_Зараз PRO безкоштовний на 21 день для перших користувачів_ ❤️`,
     { parse_mode: 'Markdown', ...inlineKb([
-      [{ text: '🔓 Спробувати PRO', data: 'pay' }],
+      [{ text: '🔓 Спробувати PRO безкоштовно', data: 'activate_trial' }],
       [{ text: '😋 Пізніше', data: 'pro_later' }],
     ]) }
   );
