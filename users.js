@@ -36,7 +36,7 @@ function scheduleSave(id) {
     try {
       const u = cache[key];
       if (!u) return;
-      const toSave = { ...u, session: {}, lastRecs: [], step: null };
+      const toSave = { ...u, lastRecs: [] };
       await redis.set(`user:${key}`, JSON.stringify(toSave));
     } catch (e) {
       console.error(`[users] Redis save error for ${key}:`, e.message);
@@ -64,7 +64,7 @@ async function getUser(id) {
     const data = await redis.get(`user:${key}`);
     if (data) {
       const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-      const u = { ...defaultUser(), ...parsed, session: {}, lastRecs: [], step: null };
+      const u = { ...defaultUser(), ...parsed, lastRecs: [] };
       cache[key] = u;
       checkProExpiry(u, key);
       return u;
