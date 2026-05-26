@@ -4,7 +4,7 @@ const { getUser, recordTaste, getTopCuisines, getLastChoice } = require('./users
 const { getBudgetRange, getVenuesInRadius, findDishPhoto, distanceText } = require('./menu');
 const { getCuisineEmoji, inlineKb } = require('./utils');
 const { track } = require('./analytics');
-const { recButtons } = require('./handlers/buttons');
+const { recButtons } = require('./recButtons'); // окремий файл, без циклічного імпорту
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 const searchCache = new Map();
@@ -40,7 +40,7 @@ async function askClaude(prompt, maxTokens = 600) {
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },
-      timeout: 12000,
+      timeout: 15000,
     });
     return res.data.content[0].text;
   } catch (e) {
@@ -49,15 +49,14 @@ async function askClaude(prompt, maxTokens = 600) {
   }
 }
 
-// ─── Теги алкоголю для перевірки страви ──────────────────────────────────────
+// ─── Алкоголь ─────────────────────────────────────────────────────────────────
 const ALCOHOL_KEYWORDS = [
   'вино','wine','verde','vinho','пиво','beer','коктейль','cocktail',
   'горілка','whisky','віскі','джин','ром','лікер','шот','бренді',
   'текіла','абсент','просекко','шампан','cava','брют','н/сухе',
-  'п/сухе','п/солодке','солодке','портвейн','херес','мартіні',
-  'aperol','campari','spritz','сидр','cider','мед','медовуха',
+  'п/сухе','п/солодке','портвейн','херес','мартіні',
+  'aperol','campari','spritz','сидр','cider','медовуха',
 ];
-
 function isDrink(dishName) {
   const name = (dishName || '').toLowerCase();
   return ALCOHOL_KEYWORDS.some(k => name.includes(k));
@@ -66,24 +65,17 @@ function isDrink(dishName) {
 // ─── PRO: Calories ────────────────────────────────────────────────────────────
 async function getCalories(dish, place) {
   try {
-    // Простий чіткий промпт, достатньо токенів
     const res = await askClaude(
-      `Дай приблизні калорії для страви "${dish}" з ресторану "${place}".\nВідповідь ТІЛЬКИ у форматі JSON, без тексту до або після:\n{"kcal":450,"protein":20,"fat":15,"carbs":50}`,
-      200 // достатньо для одного JSON об'єкта
+      `Дай приблизні калорії для страви "${dish}" з ресторану "${place}".\nВідповідь ТІЛЬКИ JSON без тексту:\n{"kcal":450,"protein":20,"fat":15,"carbs":50}`,
+      250
     );
     if (!res) return null;
-
-    // Витягуємо JSON навіть якщо є зайвий текст
     const match = res.match(/\{[^{}]*"kcal"[^{}]*\}/);
     if (!match) return null;
-
     const parsed = JSON.parse(match[0]);
-
-    // Перевіряємо що всі поля є числами
     const { kcal, protein, fat, carbs } = parsed;
     if (!kcal || !protein || !fat || !carbs) return null;
     if (isNaN(kcal) || isNaN(protein) || isNaN(fat) || isNaN(carbs)) return null;
-
     return {
       kcal:    Math.round(Number(kcal)),
       protein: Math.round(Number(protein)),
@@ -96,32 +88,21 @@ async function getCalories(dish, place) {
   }
 }
 
-// ─── PRO: Pair recommendation ─────────────────────────────────────────────────
+// ─── PRO: Pair ────────────────────────────────────────────────────────────────
 async function getPairRec(dish, venueMenu) {
   try {
-    // Якщо сама страва є напоєм — пропонуємо закуску, не напій
     const dishIsDrink = isDrink(dish);
-
-    // Фільтруємо меню: якщо страва є напоєм → пропонуємо їжу; якщо їжа → пропонуємо напій
-    const relevantMenu = venueMenu?.filter(d => {
-      if (dishIsDrink) {
-        // до напою — їжа (не алкоголь, не інший напій)
-        return !isDrink(d.name);
-      } else {
-        // до їжі — напій або легке доповнення
-        return true;
-      }
-    }).slice(0, 8) || [];
-
-    const menuStr = relevantMenu.map(d => `${d.name} (${d.price}₴)`).join(', ');
-    const menuNote = menuStr ? ` Меню закладу: ${menuStr}.` : '';
+    const relevantMenu = (venueMenu || []).filter(d =>
+      dishIsDrink ? !isDrink(d.name) : true
+    ).slice(0, 8);
+    const menuStr = relevantMenu.map(d => `${d.name}(${d.price}₴)`).join(', ');
+    const menuNote = menuStr ? ` Меню: ${menuStr}.` : '';
     const context = dishIsDrink
-      ? `Це напій. Порадь 1 закуску або страву до нього.`
-      : `Це страва. Порадь 1 напій або легке доповнення до неї.`;
-
+      ? 'Це напій. Порадь 1 закуску або страву.'
+      : 'Це страва. Порадь 1 напій або доповнення.';
     const res = await askClaude(
-      `До "${dish}" — ${context}${menuNote}\nJSON: {"pair":"назва","reason":"1 коротке речення"}`,
-      150
+      `До "${dish}" — ${context}${menuNote}\nJSON: {"pair":"назва","reason":"1 речення"}`,
+      180
     );
     if (!res) return null;
     const match = res.match(/\{[^{}]*"pair"[^{}]*\}/);
@@ -136,12 +117,20 @@ async function getPairRec(dish, venueMenu) {
 async function doSearch(bot, chatId, isSwap = false, isKids = false, extendedRadius = false) {
   const user = await getUser(chatId);
   const s = user.session;
+
+  // Захист від порожньої сесії
+  if (!s || !s.lat || !s.budget) {
+    const { handleManualLocation } = require('./handlers/location');
+    await handleManualLocation(bot, chatId);
+    return;
+  }
+
   const budget = getBudgetRange(s.budget);
   const isRandom = s.cuisine === '🎲 Обери за мене';
   const cuisine = isKids ? 'kids' : s.cuisine;
   const isPro = user.isPro;
-
   const isManualDistrict = s.isManualDistrict;
+
   let radius = extendedRadius ? 10 : (isManualDistrict ? 3 : 1.5);
   let venues = getVenuesInRadius(s.lat, s.lng, radius, budget, cuisine);
   if (!extendedRadius && !isManualDistrict && venues.length < 3) {
@@ -152,8 +141,8 @@ async function doSearch(bot, chatId, isSwap = false, isKids = false, extendedRad
     await bot.sendMessage(chatId, `😅 Поруч нічого не знайшов за цими параметрами.`,
       inlineKb([
         [{ text: '🔎 Шукати далі', data: 'search_extended' }],
-        [{ text: '🏙 Інший район', data: 'manual_location' }],
-        [{ text: '↩️ Змінити кухню', data: 'back_to_cuisine' }],
+        [{ text: '🏙 Інший район', data: 'change_district' }],
+        [{ text: '🍽 Змінити кухню', data: 'back_to_cuisine' }],
       ]));
     return;
   }
@@ -168,16 +157,10 @@ async function doSearch(bot, chatId, isSwap = false, isKids = false, extendedRad
   }
 
   recordTaste(user, s.cuisine, s.districtName);
-
-  // Аналітика
   track(chatId, 'search', {
-    cuisine,
-    budget: s.budget,
+    cuisine, budget: s.budget,
     district: s.districtName || 'geo',
-    is_pro: isPro,
-    is_swap: isSwap,
-    is_kids: isKids,
-    search_count: user.searchCount || 0,
+    is_pro: isPro, is_swap: isSwap, is_kids: isKids,
   });
 
   const usedPlaces = new Set(isSwap && user.lastRecs ? user.lastRecs.map(r => r.place) : []);
@@ -193,23 +176,16 @@ async function doSearch(bot, chatId, isSwap = false, isKids = false, extendedRad
   finalVenues = finalVenues.slice(0, 8);
 
   const ck = cacheKey(s.lat, s.lng, s.budget, cuisine);
-  let recs = null;
-
-  if (!isSwap && !isKids && !isPro) {
-    recs = getCached(ck);
-  }
+  let recs = (!isSwap && !isKids && !isPro) ? getCached(ck) : null;
 
   if (!recs) {
     const topCuisines = getTopCuisines(user, 2);
-    const tasteNote = isPro && topCuisines.length && isRandom
-      ? ` Улюблені кухні: ${topCuisines.join(', ')}.` : '';
-    const swapNote = isSwap && user.lastRecs?.length
-      ? ` УНИКАЙ: ${user.lastRecs.map(r => r.place).join(', ')}.` : '';
+    const tasteNote = isPro && topCuisines.length && isRandom ? ` Улюблені кухні: ${topCuisines.join(', ')}.` : '';
+    const swapNote = isSwap && user.lastRecs?.length ? ` УНИКАЙ: ${user.lastRecs.map(r => r.place).join(', ')}.` : '';
 
     const venueList = finalVenues.map(v => {
       const dishes = v.filteredMenu.slice(0, 3).map(d => `${d.name}(${d.price}₴)`).join(', ');
-      const gem = hiddenGems.has(v.name) ? '[gem]' : '';
-      return `${v.name}${gem}: ${dishes}`;
+      return `${v.name}${hiddenGems.has(v.name) ? '[gem]' : ''}: ${dishes}`;
     }).join('\n');
 
     const prompt = `Обери 3 варіанти з різних закладів. Бюджет: ${budget.label}.${tasteNote}${swapNote}${hiddenGems.size ? ' Включи хоча б 1 [gem].' : ''}
@@ -222,10 +198,9 @@ JSON (тільки з цього списку, точні назви!):
     const reply = await askClaude(prompt, 600);
     if (!reply) {
       await bot.sendMessage(chatId, `😔 Помилка. Спробуй ще раз.`,
-        inlineKb([[{ text: '🔄 Повторити', data: 'retry' }], [{ text: '↩️ Назад', data: 'back_to_cuisine' }]]));
+        inlineKb([[{ text: '🔄 Повторити', data: 'retry' }], [{ text: '🍽 Змінити кухню', data: 'back_to_cuisine' }]]));
       return;
     }
-
     try {
       const match = reply.match(/\[[\s\S]*\]/);
       if (match) recs = JSON.parse(match[0]);
@@ -234,20 +209,17 @@ JSON (тільки з цього списку, точні назви!):
 
   if (!recs?.length) {
     await bot.sendMessage(chatId, `😔 Спробуй ще раз.`,
-      inlineKb([[{ text: '🔄 Повторити', data: 'retry' }], [{ text: '↩️ Назад', data: 'back_to_cuisine' }]]));
+      inlineKb([[{ text: '🔄 Повторити', data: 'retry' }], [{ text: '🍽 Змінити кухню', data: 'back_to_cuisine' }]]));
     return;
   }
 
   recs = recs.map(r => {
     const venue = finalVenues.find(v => v.name === r.place) || venues.find(v => v.name === r.place);
     if (!venue) return null;
-
     const realDish = venue.filteredMenu.find(d => d.name === r.dish)
       || venue.filteredMenu.find(d => d.name.toLowerCase().includes((r.dish || '').toLowerCase()))
       || venue.filteredMenu[0];
-
     if (!realDish) return null;
-
     const { photo } = findDishPhoto(venue, realDish.name);
     return {
       ...r,
@@ -255,24 +227,17 @@ JSON (тільки з цього списку, точні назви!):
       price:    realDish.price,
       distText: distanceText(venue.distKm, s.districtName),
       distKm:   venue.distKm,
-      photo,
-      lat:      venue.lat,
-      lng:      venue.lng,
-      address:  venue.address,
+      photo, lat: venue.lat, lng: venue.lng, address: venue.address,
       isGem:    hiddenGems.has(r.place),
     };
   }).filter(Boolean);
 
   const seen = new Set();
-  recs = recs.filter(r => {
-    if (seen.has(r.place)) return false;
-    seen.add(r.place);
-    return true;
-  }).slice(0, 3);
+  recs = recs.filter(r => { if (seen.has(r.place)) return false; seen.add(r.place); return true; }).slice(0, 3);
 
   if (!recs.length) {
     await bot.sendMessage(chatId, `😔 Спробуй ще раз.`,
-      inlineKb([[{ text: '🔄 Повторити', data: 'retry' }], [{ text: '↩️ Назад', data: 'back_to_cuisine' }]]));
+      inlineKb([[{ text: '🔄 Повторити', data: 'retry' }]]));
     return;
   }
 
@@ -305,12 +270,8 @@ async function sendRecs(bot, chatId, user, recs, isPro) {
     const r = recs[i];
     const emoji = getCuisineEmoji(r.dish);
     const gemBadge = r.isGem ? '\n👀 _Місце, яке часто пропускають_' : '';
-    const divider = '─────────────────';
-    const text = `${emoji} *${r.dish}*\n${divider}\n🏠 ${r.place}\n💰 ${r.price} грн  •  📍 ${r.distText}${gemBadge}\n\n_${r.description}_\n\n✨ ${r.reason}`;
-
-    const isLast = i === recs.length - 1;
-    const buttons = recButtons(i, isLast);
-
+    const text = `${emoji} *${r.dish}*\n─────────────────\n🏠 ${r.place}\n💰 ${r.price} грн  •  📍 ${r.distText}${gemBadge}\n\n_${r.description}_\n\n✨ ${r.reason}`;
+    const buttons = recButtons(i, i === recs.length - 1);
     await bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...buttons });
     await new Promise(r => setTimeout(r, 250));
   }
