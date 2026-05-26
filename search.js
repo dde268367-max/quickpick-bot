@@ -89,66 +89,53 @@ async function getCalories(dish, place) {
 }
 
 // ─── PRO: Pair ────────────────────────────────────────────────────────────────
-// Визначаємо тип страви для правильного підбору пари
 function getDishType(dishName) {
-  const name = (dishName || '').toLowerCase();
-  if (isDrink(name)) return 'drink';
-  if (['кава','капучіно','латте','еспресо','americano','чай','матча'].some(k => name.includes(k))) return 'coffee';
-  if (['торт','тістечко','десерт','морозиво','чізкейк','брауні','вафл','круасан'].some(k => name.includes(k))) return 'dessert';
-  if (['бургер','burger','сендвіч','хот-дог','шаурма'].some(k => name.includes(k))) return 'burger';
-  if (['піца','pizza'].some(k => name.includes(k))) return 'pizza';
-  if (['стейк','гриль','ребра','м\'ясо','відбивна','котлета','шніцель'].some(k => name.includes(k))) return 'meat';
-  if (['суші','ролл','рамен','вок','удон'].some(k => name.includes(k))) return 'asian';
-  if (['суп','борщ','крем-суп'].some(k => name.includes(k))) return 'soup';
-  if (['салат','цезар'].some(k => name.includes(k))) return 'salad';
-  if (['паста','ризото','лазанья'].some(k => name.includes(k))) return 'pasta';
+  const n = (dishName || '').toLowerCase();
+  if (isDrink(n)) return 'drink';
+  if (['кава','капучіно','латте','еспресо','americano','чай','матча'].some(k => n.includes(k))) return 'coffee';
+  if (['торт','тістечко','десерт','морозиво','чізкейк','брауні','вафл','круасан'].some(k => n.includes(k))) return 'dessert';
+  if (['бургер','burger','сендвіч','хот-дог','шаурма'].some(k => n.includes(k))) return 'burger';
+  if (['піца','pizza'].some(k => n.includes(k))) return 'pizza';
+  if (['стейк','гриль','ребра','відбивна','котлета','шніцель'].some(k => n.includes(k))) return 'meat';
+  if (['суші','ролл','рамен','вок','удон'].some(k => n.includes(k))) return 'asian';
+  if (['суп','борщ','крем-суп'].some(k => n.includes(k))) return 'soup';
+  if (['салат','цезар'].some(k => n.includes(k))) return 'salad';
   return 'food';
 }
 
 async function getPairRec(dish, venueMenu) {
   try {
     const dishType = getDishType(dish);
-
-    // Фільтруємо меню залежно від типу страви
-    let filtered = venueMenu || [];
+    const all = venueMenu || [];
+    let filtered = all;
     let instruction = '';
 
     if (dishType === 'drink') {
-      // До напою — їжа, не інший напій
-      filtered = filtered.filter(d => !isDrink(d.name) && getDishType(d.name) !== 'coffee');
-      instruction = 'Це алкогольний напій. Порадь легку закуску або страву до нього. НЕ пропонуй інший напій.';
+      filtered = all.filter(d => !isDrink(d.name));
+      instruction = 'Це алкогольний напій. Порадь легку закуску до нього. НЕ пропонуй інший напій.';
     } else if (dishType === 'coffee') {
-      // До кави — десерт або випічка
-      filtered = filtered.filter(d => ['dessert'].includes(getDishType(d.name)) ||
-        ['торт','тістечко','круасан','вафл','брауні','кекс','маффін'].some(k => d.name.toLowerCase().includes(k)));
-      instruction = 'Це кава. Порадь десерт або випічку до неї. НЕ пропонуй іншу каву чи повноцінну страву.';
+      filtered = all.filter(d => ['торт','тістечко','круасан','вафл','брауні','кекс','маффін','десерт'].some(k => d.name.toLowerCase().includes(k)));
+      instruction = 'Це кава. Порадь десерт або випічку. НЕ пропонуй іншу каву чи повноцінну страву.';
     } else if (dishType === 'dessert') {
-      // До десерту — кава або чай
-      filtered = filtered.filter(d => getDishType(d.name) === 'coffee' ||
-        ['кава','чай','капучіно','латте','еспресо','матча'].some(k => d.name.toLowerCase().includes(k)));
-      instruction = 'Це десерт. Порадь каву або чай до нього. НЕ пропонуй іншу їжу.';
+      filtered = all.filter(d => ['кава','чай','капучіно','латте','еспресо','матча'].some(k => d.name.toLowerCase().includes(k)));
+      instruction = 'Це десерт. Порадь каву або чай. НЕ пропонуй іншу їжу.';
     } else if (['burger','pizza','meat'].includes(dishType)) {
-      // До бургера/піци/м'яса — напій (безалкогольний або пиво)
-      filtered = filtered.filter(d => isDrink(d.name) || getDishType(d.name) === 'coffee' ||
-        ['лимонад','сік','вода','кола','pepsi','cola','нектар'].some(k => d.name.toLowerCase().includes(k)));
-      instruction = 'Це ситна страва (бургер/піца/м'ясо). Порадь напій до неї — лимонад, сік, пиво або каву. НЕ пропонуй іншу їжу чи гарнір.';
+      filtered = all.filter(d => isDrink(d.name) || ['лимонад','сік','вода','кола','нектар','pepsi','cola'].some(k => d.name.toLowerCase().includes(k)));
+      instruction = 'Це ситна страва. Порадь напій до неї — лимонад, сік або пиво. НЕ пропонуй іншу їжу.';
     } else if (dishType === 'soup') {
-      // До супу — хліб або салат
-      filtered = filtered.filter(d => ['хліб','бородинський','фокача','брускет','салат','цезар'].some(k => d.name.toLowerCase().includes(k)));
-      instruction = 'Це суп. Порадь хліб або легкий салат до нього. НЕ пропонуй напій чи повноцінну страву.';
+      filtered = all.filter(d => ['хліб','бородинськ','фокач','брускет','салат'].some(k => d.name.toLowerCase().includes(k)));
+      instruction = 'Це суп. Порадь хліб або легкий салат. НЕ пропонуй напій чи повноцінну страву.';
     } else {
-      // До решти — напій
-      filtered = filtered.filter(d => isDrink(d.name) || getDishType(d.name) === 'coffee');
+      filtered = all.filter(d => isDrink(d.name) || getDishType(d.name) === 'coffee');
       instruction = 'Це страва. Порадь напій до неї. НЕ пропонуй іншу їжу.';
     }
 
-    // Якщо після фільтрації нічого немає — використовуємо все меню
-    const menuItems = (filtered.length > 0 ? filtered : venueMenu || []).slice(0, 8);
-    const menuStr = menuItems.map(d => `${d.name}(${d.price}₴)`).join(', ');
-    const menuNote = menuStr ? ` Меню закладу: ${menuStr}.` : '';
+    const items = (filtered.length > 0 ? filtered : all).slice(0, 8);
+    const menuStr = items.map(d => `${d.name}(${d.price}грн)`).join(', ');
+    const menuNote = menuStr ? ` Меню: ${menuStr}.` : '';
 
     const res = await askClaude(
-      `До страви "${dish}" — ${instruction}${menuNote}\nВідповідь ТІЛЬКИ JSON: {"pair":"назва","reason":"1 коротке речення чому це підходить"}`,
+      `До страви "${dish}" — ${instruction}${menuNote}` + '\nJSON: {"pair":"назва","reason":"1 речення"}',
       180
     );
     if (!res) return null;
