@@ -3,6 +3,7 @@ const { ANTHROPIC_KEY, SEARCH_MESSAGES } = require('./config');
 const { getUser, recordTaste, getTopCuisines, getLastChoice } = require('./users');
 const { getBudgetRange, getVenuesInRadius, findDishPhoto, distanceText } = require('./menu');
 const { getCuisineEmoji, inlineKb } = require('./utils');
+const { track } = require('./analytics');
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 const searchCache = new Map();
@@ -166,6 +167,17 @@ async function doSearch(bot, chatId, isSwap = false, isKids = false, extendedRad
   }
 
   recordTaste(user, s.cuisine, s.districtName);
+
+  // Аналітика
+  track(chatId, 'search', {
+    cuisine,
+    budget: s.budget,
+    district: s.districtName || 'geo',
+    is_pro: isPro,
+    is_swap: isSwap,
+    is_kids: isKids,
+    search_count: user.searchCount || 0,
+  });
 
   const usedPlaces = new Set(isSwap && user.lastRecs ? user.lastRecs.map(r => r.place) : []);
   let finalVenues = venues.filter(v => !usedPlaces.has(v.name));

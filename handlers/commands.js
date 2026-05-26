@@ -1,12 +1,16 @@
 const { getUser, getProStatus, getTastePhrase, getTopCuisines } = require('../users');
 const { inlineKb } = require('../utils');
 const { realMenu } = require('../menu');
+const { track, identify } = require('../analytics');
 
 function registerCommands(bot) {
 
   bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
     const user = await getUser(chatId);
+    const isNew = user.searchCount === 0 && !user.hasUsedTrial;
+    track(chatId, 'bot_started', { is_new: isNew, is_pro: user.isPro });
+    if (isNew) identify(chatId, { joined_at: new Date().toISOString() });
     user.step = null; user.session = {};
     await bot.sendMessage(chatId,
       `⚡ *Привіт! Я QuickPick*\n\nДопоможу швидко обрати де і що поїсти 🍴\n\n❤️ Ти один із перших користувачів QuickPick`,

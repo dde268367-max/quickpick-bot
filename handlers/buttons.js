@@ -4,6 +4,7 @@ const { doSearch, sendRecs, getCalories, getPairRec } = require('../search');
 const { showPro } = require('./commands');
 const { CUISINE_BUTTONS, BUDGET_BUTTONS } = require('../config');
 const { handleManualLocation, handleCityKyiv, handleCityOblast, handleDistrict, handleOblastCity, randomIntro } = require('./location');
+const { track, identify } = require('../analytics');
 
 function registerButtons(bot) {
   bot.on('callback_query', async (query) => {
@@ -23,6 +24,7 @@ function registerButtons(bot) {
     }
 
     if (data === 'start_search') {
+      track(chatId, 'start_search', { is_pro: user.isPro });
       user.session = {}; user.step = 'location';
       await bot.sendMessage(chatId, `📍 *Як шукаємо?*`, {
         parse_mode: 'Markdown',
@@ -109,6 +111,15 @@ function registerButtons(bot) {
       user.topDishes.push(rec.dish);
       const { scheduleSave } = require('../users');
       scheduleSave(String(chatId));
+
+      track(chatId, 'dish_picked', {
+        dish: rec.dish,
+        place: rec.place,
+        price: rec.price,
+        cuisine: user.session?.cuisine,
+        is_pro: user.isPro,
+        is_gem: rec.isGem || false,
+      });
 
       const mapsUrl = rec.lat && rec.lng
         ? `https://www.google.com/maps/dir/?api=1&destination=${rec.lat},${rec.lng}`
@@ -242,6 +253,8 @@ function registerButtons(bot) {
     } else if (data === 'activate_trial') {
       const ok = await activateTrial(chatId);
       if (ok) {
+        track(chatId, 'pro_activated', { source: 'trial' });
+        identify(chatId, { is_pro: true, pro_started_at: new Date().toISOString() });
         const proStatus = getProStatus(user);
         await bot.sendMessage(chatId,
           `🎉 *QuickPick PRO активовано!*\n\n⭐ PRO ACTIVE · До ${proStatus.expiresDate}\n\n🧠 Персональні рекомендації — увімкнено\n🔥 Hidden gems — увімкнено\n🔁 Smart repeats — увімкнено\n🍷 Pair recommendations — увімкнено\n💪 Калорії та БЖУ — увімкнено\n\n❤️ Ти один із перших користувачів QuickPick`,
