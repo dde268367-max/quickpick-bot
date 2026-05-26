@@ -6,7 +6,7 @@ function registerCommands(bot) {
 
   bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
-    const user = getUser(chatId);
+    const user = await getUser(chatId);
     user.step = null; user.session = {};
     await bot.sendMessage(chatId,
       `⚡ *Привіт! Я QuickPick*\n\nДопоможу швидко обрати де і що поїсти 🍴\n\n❤️ Ти один із перших користувачів QuickPick`,
@@ -16,7 +16,7 @@ function registerCommands(bot) {
 
   bot.onText(/\/pick/, async (msg) => {
     const chatId = msg.chat.id;
-    const user = getUser(chatId);
+    const user = await getUser(chatId);
     user.session = {}; user.step = 'location';
     await bot.sendMessage(chatId, `📍 *Як шукаємо?*`, {
       parse_mode: 'Markdown',
@@ -30,14 +30,14 @@ function registerCommands(bot) {
   bot.onText(/\/pro/, async (msg) => { await showPro(bot, msg.chat.id); });
 
   bot.onText(/\/saved/, async (msg) => {
-    const user = getUser(msg.chat.id);
+    const user = await getUser(msg.chat.id);
     if (!user.saved.length) { await bot.sendMessage(msg.chat.id, `❤️ Збережених страв поки немає.`); return; }
     const list = user.saved.map((s, i) => `${i + 1}. *${s.dish}* — ${s.place}`).join('\n');
     await bot.sendMessage(msg.chat.id, `❤️ *Збережені:*\n\n${list}`, { parse_mode: 'Markdown' });
   });
 
   bot.onText(/\/history/, async (msg) => {
-    const user = getUser(msg.chat.id);
+    const user = await getUser(msg.chat.id);
     if (!user.history.length) { await bot.sendMessage(msg.chat.id, `📋 Історія порожня.`); return; }
     const list = user.history.slice(-8).reverse().map((h, i) =>
       `${i + 1}. *${h.dish}* — ${h.place}\n📅 ${new Date(h.date).toLocaleDateString('uk-UA')}`
@@ -47,21 +47,16 @@ function registerCommands(bot) {
 
   bot.onText(/\/profile/, async (msg) => {
     const chatId = msg.chat.id;
-    const user = getUser(chatId);
-
+    const user = await getUser(chatId);
     const proStatus = getProStatus(user);
     const status = proStatus
       ? `⭐ PRO ACTIVE · До ${proStatus.expiresDate}`
       : (user.isPro ? '⭐ PRO' : '🆓 Безкоштовно');
-
     const topCuisines = getTopCuisines(user, 3);
     const cuisineStr = topCuisines.length ? topCuisines.join(', ') : 'Ще не визначились';
-
     const tastePhrase = getTastePhrase(user);
-
     const savedCount = user.saved.length;
     const searchCount = user.searchCount || 0;
-
     const lastHistory = user.history.slice(-3).reverse().map(h =>
       `• *${h.dish}* — ${h.place}`
     ).join('\n') || 'Поки нічого';
@@ -101,7 +96,7 @@ function registerCommands(bot) {
 
   bot.onText(/\/reset/, async (msg) => {
     const chatId = msg.chat.id;
-    const user = getUser(chatId);
+    const user = await getUser(chatId);
     user.session = {}; user.step = null; user.lastRecs = [];
     await bot.sendMessage(chatId, `🔄 Скинуто!`,
       inlineKb([[{ text: '🚀 Почати', data: 'start_search' }]]));

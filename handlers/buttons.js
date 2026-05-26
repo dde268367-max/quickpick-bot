@@ -8,7 +8,7 @@ const { handleManualLocation, handleCityKyiv, handleCityOblast, handleDistrict, 
 function registerButtons(bot) {
   bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
-    const user = getUser(chatId);
+    const user = await getUser(chatId);
     const data = query.data;
 
     await bot.answerCallbackQuery(query.id);
@@ -74,15 +74,12 @@ function registerButtons(bot) {
         parse_mode: 'Markdown', ...kb([...BUDGET_BUTTONS, ['↩️ Назад']]),
       });
 
-    // PRO: Smart Repeat
     } else if (data === 'repeat_last') {
       const last = user.history[user.history.length - 1];
       if (!last) return;
       await bot.sendMessage(chatId,
         `✅ *${last.dish}* у *${last.place}* — чудовий вибір!`,
-        { parse_mode: 'Markdown', ...inlineKb([
-          [{ text: '🔄 Новий пошук', data: 'new_search' }],
-        ]) }
+        { parse_mode: 'Markdown', ...inlineKb([[{ text: '🔄 Новий пошук', data: 'new_search' }]]) }
       );
 
     } else if (data === 'skip_repeat') {
@@ -92,7 +89,6 @@ function registerButtons(bot) {
         await sendRecs(bot, chatId, user, pendingRecs, user.isPro);
       }
 
-    // PRO: Surprise me з урахуванням смаків
     } else if (data === 'surprise_me') {
       user.session.cuisine = '🎲 Обери за мене';
       user.session.budget = user.session.budget || '🥲 Сьогодні економимо';
@@ -111,6 +107,8 @@ function registerButtons(bot) {
       user.history.push({ dish: rec.dish, place: rec.place, date: Date.now() });
       if (!user.topDishes) user.topDishes = [];
       user.topDishes.push(rec.dish);
+      const { scheduleSave } = require('../users');
+      scheduleSave(String(chatId));
 
       const mapsUrl = rec.lat && rec.lng
         ? `https://www.google.com/maps/dir/?api=1&destination=${rec.lat},${rec.lng}`
@@ -128,7 +126,6 @@ function registerButtons(bot) {
         [{ text: '🔄 Новий пошук', callback_data: 'new_search' }, { text: '👤 Профіль', callback_data: 'show_profile' }],
       ];
 
-      // PRO: Pair recommendation
       if (user.isPro) {
         actionButtons.splice(1, 0, [{ text: '🍷 Що до цього підійде?', callback_data: `pair_${idx}` }]);
         actionButtons.push([{ text: '💪 Калорії та БЖУ', callback_data: `calories_${idx}` }]);
@@ -139,7 +136,6 @@ function registerButtons(bot) {
         reply_markup: { inline_keyboard: actionButtons }
       });
 
-    // PRO: Pair recommendation
     } else if (data.startsWith('pair_')) {
       if (!user.isPro) { await bot.sendMessage(chatId, `⭐ Ця функція доступна у PRO`); return; }
       const idx = parseInt(data.split('_')[1]);
@@ -156,7 +152,6 @@ function registerButtons(bot) {
         await bot.sendMessage(chatId, `😔 Не вдалось підібрати пару. Спробуй пізніше.`);
       }
 
-    // PRO: Calories
     } else if (data.startsWith('calories_')) {
       if (!user.isPro) { await bot.sendMessage(chatId, `⭐ Ця функція доступна у PRO`); return; }
       const idx = parseInt(data.split('_')[1]);
@@ -181,6 +176,8 @@ function registerButtons(bot) {
         await bot.sendMessage(chatId, `Вже є в збережених!`);
       } else {
         user.saved.push({ dish: rec.dish, place: rec.place, address: rec.address, date: Date.now() });
+        const { scheduleSave } = require('../users');
+        scheduleSave(String(chatId));
         await bot.sendMessage(chatId, `❤️ *${rec.dish}* збережено!\n🏠 ${rec.place}`, { parse_mode: 'Markdown' });
       }
 
@@ -243,7 +240,7 @@ function registerButtons(bot) {
       await handleManualLocation(bot, chatId);
 
     } else if (data === 'activate_trial') {
-      const ok = activateTrial(chatId);
+      const ok = await activateTrial(chatId);
       if (ok) {
         const proStatus = getProStatus(user);
         await bot.sendMessage(chatId,
@@ -259,9 +256,7 @@ function registerButtons(bot) {
 
     } else if (data === 'pro_later') {
       await bot.sendMessage(chatId, `😊 Добре! Повернемось до цього пізніше.`,
-        inlineKb([
-          [{ text: '🔄 Новий пошук', data: 'new_search' }, { text: '❤️ Збережені', data: 'all_saved' }],
-        ])
+        inlineKb([[{ text: '🔄 Новий пошук', data: 'new_search' }, { text: '❤️ Збережені', data: 'all_saved' }]])
       );
 
     } else if (data === 'all_saved') {
@@ -281,6 +276,8 @@ function registerButtons(bot) {
 
     } else if (data === 'clear_saved') {
       user.saved = [];
+      const { scheduleSave } = require('../users');
+      scheduleSave(String(chatId));
       await bot.sendMessage(chatId, `✅ Збережені очищено.`);
 
     } else if (data === 'reset') {

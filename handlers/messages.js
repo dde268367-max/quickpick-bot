@@ -8,7 +8,7 @@ function registerMessages(bot) {
   bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
-    const user = getUser(chatId);
+    const user = await getUser(chatId);
 
     if (!text || text.startsWith('/')) return;
 

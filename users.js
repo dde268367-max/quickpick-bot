@@ -1,63 +1,20 @@
-/**
- * users.js — зберігання юзерів з персистентністю через JSON файл.
- *
- * Чому JSON а не DB? Бот невеликий, Railway перезапускає контейнер,
- * файл на диску зберігається між деплоями (якщо є volume).
- * Для масштабування > 1000 юзерів — переходь на Redis або SQLite.
- */
+const { Redis } = require('@upstash/redis');
 
-const fs = require('fs');
-const path = require('path');
+const redis = new Redis({
+  url:   process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
-const USERS_FILE = path.join(process.cwd(), 'users_data.json');
+// In-memory кеш — не робимо запит в Redis при кожній дії
+const cache = {};
+const saveTimers = {};
 
-// ─── Завантаження ─────────────────────────────────────────────────────────────
-let users = {};
-try {
-  if (fs.existsSync(USERS_FILE)) {
-    users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-    console.log(`[users] Завантажено ${Object.keys(users).length} юзерів`);
-  }
-} catch (e) {
-  console.error('[users] Помилка завантаження, починаємо з нуля:', e.message);
-  users = {};
-}
-
-// ─── Авто-збереження кожні 30 секунд ─────────────────────────────────────────
-let saveTimer = null;
-function scheduleSave() {
-  if (saveTimer) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    try {
-      // Зберігаємо без session/lastRecs (вони тимчасові)
-      const toSave = {};
-      for (const [id, u] of Object.entries(users)) {
-        toSave[id] = {
-          ...u,
-          session:  {},
-          lastRecs: [],
-          step:     null,
-        };
-      }
-      fs.writeFileSync(USERS_FILE, JSON.stringify(toSave));
-    } catch (e) {
-      console.error('[users] Помилка збереження:', e.message);
-    }
-  }, 30000);
-}
-
-// Зберігаємо при завершенні процесу
-process.on('SIGTERM', () => { try { fs.writeFileSync(USERS_FILE, JSON.stringify(users)); } catch {} });
-process.on('SIGINT',  () => { try { fs.writeFileSync(USERS_FILE, JSON.stringify(users)); } catch {} });
-
-// ─── Структура юзера ─────────────────────────────────────────────────────────
 function defaultUser() {
   return {
     session:            {},
-    history:            [],      // [{ dish, place, date }]
-    saved:              [],      // [{ dish, place, address, date }]
-    lastRecs:           [],      // тимчасово, не зберігається
+    history:            [],
+    saved:              [],
+    lastRecs:           [],
     isPro:              false,
     proStartedAt:       null,
     proExpiresAt:       null,
@@ -66,47 +23,71 @@ function defaultUser() {
     joinDate:           Date.now(),
     step:               null,
     searchCount:        0,
-    cuisineHistory:     {},      // { '🍝 Щось ситне': 3 }
-    districtHistory:    {},      // { 'Поділ': 2 }
+    cuisineHistory:     {},
+    districtHistory:    {},
     topDishes:          [],
   };
 }
 
-function getUser(id) {
+function scheduleSave(id) {
   const key = String(id);
-  if (!users[key]) {
-    users[key] = defaultUser();
-    scheduleSave();
-  }
+  if (saveTimers[key]) clearTimeout(saveTimers[key]);
+  saveTimers[key] = setTimeout(async () => {
+    try {
+      const u = cache[key];
+      if (!u) return;
+      const toSave = { ...u, session: {}, lastRecs: [], step: null };
+      await redis.set(`user:${key}`, JSON.stringify(toSave));
+    } catch (e) {
+      console.error(`[users] Redis save error for ${key}:`, e.message);
+    }
+  }, 10000);
+}
 
-  const u = users[key];
-
-  // Автоперевірка закінчення PRO
+function checkProExpiry(u, id) {
   if (u.isPro && u.proExpiresAt && Date.now() > u.proExpiresAt) {
     u.isPro = false;
     u.proExpiredNotified = false;
-    scheduleSave();
+    scheduleSave(id);
+  }
+}
+
+async function getUser(id) {
+  const key = String(id);
+
+  if (cache[key]) {
+    checkProExpiry(cache[key], key);
+    return cache[key];
   }
 
-  // Міграція: додаємо відсутні поля до старих юзерів
-  let migrated = false;
-  const defaults = defaultUser();
-  for (const [k, v] of Object.entries(defaults)) {
-    if (u[k] === undefined) { u[k] = v; migrated = true; }
+  try {
+    const data = await redis.get(`user:${key}`);
+    if (data) {
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      const u = { ...defaultUser(), ...parsed, session: {}, lastRecs: [], step: null };
+      cache[key] = u;
+      checkProExpiry(u, key);
+      return u;
+    }
+  } catch (e) {
+    console.error(`[users] Redis get error for ${key}:`, e.message);
   }
-  if (migrated) scheduleSave();
 
+  const u = defaultUser();
+  cache[key] = u;
+  scheduleSave(key);
   return u;
 }
 
-function activateTrial(id) {
-  const u = getUser(id);
+async function activateTrial(id) {
+  const key = String(id);
+  const u = await getUser(key);
   if (u.hasUsedTrial) return false;
   u.isPro = true;
   u.hasUsedTrial = true;
   u.proStartedAt = Date.now();
   u.proExpiresAt = Date.now() + 21 * 24 * 60 * 60 * 1000;
-  scheduleSave();
+  scheduleSave(key);
   return true;
 }
 
@@ -118,13 +99,8 @@ function getProStatus(user) {
 }
 
 function recordTaste(user, cuisine, district) {
-  if (cuisine) {
-    user.cuisineHistory[cuisine] = (user.cuisineHistory[cuisine] || 0) + 1;
-  }
-  if (district) {
-    user.districtHistory[district] = (user.districtHistory[district] || 0) + 1;
-  }
-  scheduleSave();
+  if (cuisine) user.cuisineHistory[cuisine] = (user.cuisineHistory[cuisine] || 0) + 1;
+  if (district) user.districtHistory[district] = (user.districtHistory[district] || 0) + 1;
 }
 
 function getTopCuisines(user, limit = 3) {
