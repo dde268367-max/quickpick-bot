@@ -4,6 +4,7 @@ const { getUser, recordTaste, getTopCuisines, getLastChoice } = require('./users
 const { getBudgetRange, getVenuesInRadius, findDishPhoto, distanceText } = require('./menu');
 const { getCuisineEmoji, inlineKb } = require('./utils');
 const { track } = require('./analytics');
+const { recButtons } = require('./handlers/buttons');
 
 // ─── Cache ────────────────────────────────────────────────────────────────────
 const searchCache = new Map();
@@ -307,18 +308,8 @@ async function sendRecs(bot, chatId, user, recs, isPro) {
     const divider = '─────────────────';
     const text = `${emoji} *${r.dish}*\n${divider}\n🏠 ${r.place}\n💰 ${r.price} грн  •  📍 ${r.distText}${gemBadge}\n\n_${r.description}_\n\n✨ ${r.reason}`;
 
-    let buttons;
-    if (i < 2) {
-      buttons = inlineKb([
-        [{ text: '🍴 Хочу це', data: `pick_${i}` }],
-        [{ text: '↩️ Назад', data: 'back_to_cuisine' }],
-      ]);
-    } else {
-      buttons = inlineKb([
-        [{ text: '🍴 Хочу це', data: `pick_${i}` }, { text: '🔄 Інші варіанти', data: 'swap' }],
-        [{ text: '↩️ Назад', data: 'back_to_cuisine' }, { text: '👶 Дитячі варіанти', data: 'kids_filter' }],
-      ]);
-    }
+    const isLast = i === recs.length - 1;
+    const buttons = recButtons(i, isLast);
 
     await bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...buttons });
     await new Promise(r => setTimeout(r, 250));

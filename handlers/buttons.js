@@ -6,6 +6,23 @@ const { CUISINE_BUTTONS, BUDGET_BUTTONS } = require('../config');
 const { handleManualLocation, handleCityKyiv, handleCityOblast, handleDistrict, handleOblastCity, randomIntro } = require('./location');
 const { track, identify } = require('../analytics');
 
+// Кнопки під карткою рекомендації (під кожною стравою)
+function recButtons(i, isLast) {
+  if (!isLast) {
+    return inlineKb([
+      [{ text: '🍴 Хочу це', data: `pick_${i}` }],
+      [{ text: '🔄 Інші варіанти', data: 'swap' }, { text: '🍽 Змінити кухню', data: 'back_to_cuisine' }],
+      [{ text: '📍 Змінити район', data: 'change_district' }, { text: '↩️ Спочатку', data: 'start_search' }],
+    ]);
+  } else {
+    return inlineKb([
+      [{ text: '🍴 Хочу це', data: `pick_${i}` }, { text: '🔄 Інші варіанти', data: 'swap' }],
+      [{ text: '🍽 Змінити кухню', data: 'back_to_cuisine' }, { text: '👶 Дитячі', data: 'kids_filter' }],
+      [{ text: '📍 Змінити район', data: 'change_district' }, { text: '↩️ Спочатку', data: 'start_search' }],
+    ]);
+  }
+}
+
 function registerButtons(bot) {
   bot.on('callback_query', async (query) => {
     const chatId = query.message.chat.id;
@@ -65,6 +82,9 @@ function registerButtons(bot) {
       await doSearch(bot, chatId, false, true);
 
     } else if (data === 'back_to_cuisine') {
+      // Зберігаємо локацію, тільки скидаємо кухню/бюджет
+      const { lat, lng, districtName, isManualDistrict } = user.session;
+      user.session = { lat, lng, districtName, isManualDistrict };
       user.step = 'cuisine';
       await bot.sendMessage(chatId, `*${randomIntro()}*`, {
         parse_mode: 'Markdown', ...kb(CUISINE_BUTTONS),
@@ -81,7 +101,9 @@ function registerButtons(bot) {
       if (!last) return;
       await bot.sendMessage(chatId,
         `✅ *${last.dish}* у *${last.place}* — чудовий вибір!`,
-        { parse_mode: 'Markdown', ...inlineKb([[{ text: '🔄 Новий пошук', data: 'new_search' }]]) }
+        { parse_mode: 'Markdown', ...inlineKb([
+          [{ text: '🔄 Новий пошук', data: 'new_search' }, { text: '📍 Змінити район', data: 'change_district' }],
+        ]) }
       );
 
     } else if (data === 'skip_repeat') {
@@ -134,7 +156,8 @@ function registerButtons(bot) {
 
       const actionButtons = [
         [{ text: '📍 Маршрут', url: mapsUrl }, { text: '❤️ Зберегти', callback_data: `save_${idx}` }],
-        [{ text: '🔄 Новий пошук', callback_data: 'new_search' }, { text: '👤 Профіль', callback_data: 'show_profile' }],
+        [{ text: '🔄 Новий пошук', callback_data: 'new_search' }, { text: '📍 Змінити район', callback_data: 'change_district' }],
+        [{ text: '🍽 Змінити кухню', callback_data: 'back_to_cuisine' }, { text: '👤 Профіль', callback_data: 'show_profile' }],
       ];
 
       if (user.isPro) {
@@ -193,8 +216,9 @@ function registerButtons(bot) {
       }
 
     } else if (data === 'new_search') {
+      // Зберігаємо район — тільки скидаємо кухню/бюджет
       const { lat, lng, districtName, isManualDistrict } = user.session;
-      user.session = {}; user.lastRecs = [];
+      user.lastRecs = [];
       if (lat && lng) {
         user.session = { lat, lng, districtName, isManualDistrict };
         user.step = 'cuisine';
@@ -202,6 +226,8 @@ function registerButtons(bot) {
           parse_mode: 'Markdown', ...kb(CUISINE_BUTTONS),
         });
       } else {
+        user.session = {};
+        user.step = 'location';
         await bot.sendMessage(chatId, `📍 *Як шукаємо?*`, {
           parse_mode: 'Markdown',
           ...inlineKb([
@@ -210,6 +236,18 @@ function registerButtons(bot) {
           ])
         });
       }
+
+    } else if (data === 'change_district') {
+      // Повністю скидаємо локацію — вибір з нуля
+      user.session = {};
+      user.step = 'location';
+      await bot.sendMessage(chatId, `📍 *Як шукаємо?*`, {
+        parse_mode: 'Markdown',
+        ...inlineKb([
+          [{ text: '📍 Поділитися геолокацією', data: 'request_geo' }],
+          [{ text: '🏙 Обрати район самостійно', data: 'manual_location' }],
+        ])
+      });
 
     } else if (data === 'show_profile') {
       const proStatus = getProStatus(user);
@@ -245,10 +283,6 @@ function registerButtons(bot) {
         parse_mode: 'Markdown',
         reply_markup: { inline_keyboard: profileButtons }
       });
-
-    } else if (data === 'change_district') {
-      user.session = {}; user.step = 'location';
-      await handleManualLocation(bot, chatId);
 
     } else if (data === 'activate_trial') {
       const ok = await activateTrial(chatId);
@@ -301,4 +335,5 @@ function registerButtons(bot) {
   });
 }
 
-module.exports = { registerButtons };
+// Експортуємо recButtons для використання в search.js
+module.exports = { registerButtons, recButtons };
