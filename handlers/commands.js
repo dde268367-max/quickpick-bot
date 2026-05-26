@@ -10,7 +10,7 @@ function registerCommands(bot) {
     user.step = null; user.session = {};
     await bot.sendMessage(chatId,
       `⚡ *Привіт! Я QuickPick*\n\nДопоможу швидко обрати де і що поїсти 🍴\n\n❤️ Ти один із перших користувачів QuickPick`,
-      { parse_mode: 'Markdown', ...inlineKb([[{ text: '🚀 Почати', data: 'start_search' }]]) }
+      { parse_mode: 'Markdown', ...inlineKb([[{ text: '🚀 Почати', data: 'start_search' }], [{ text: '👤 Профіль', data: 'show_profile' }]]) }
     );
   });
 

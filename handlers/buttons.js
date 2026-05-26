@@ -125,7 +125,7 @@ function registerButtons(bot) {
 
       const actionButtons = [
         [{ text: '📍 Маршрут', url: mapsUrl }, { text: '❤️ Зберегти', callback_data: `save_${idx}` }],
-        [{ text: '🔄 Новий пошук', callback_data: 'new_search' }],
+        [{ text: '🔄 Новий пошук', callback_data: 'new_search' }, { text: '👤 Профіль', callback_data: 'show_profile' }],
       ];
 
       // PRO: Pair recommendation
@@ -199,6 +199,40 @@ function registerButtons(bot) {
           ])
         });
       }
+
+    } else if (data === 'show_profile') {
+      const proStatus = getProStatus(user);
+      const status = proStatus
+        ? `⭐ PRO ACTIVE · До ${proStatus.expiresDate}`
+        : (user.hasUsedTrial ? '🆓 Базова версія' : '🆓 Безкоштовно');
+
+      const { getTopCuisines, getTastePhrase } = require('../users');
+      const topCuisines = getTopCuisines(user, 3);
+      const cuisineStr = topCuisines.length ? topCuisines.join(', ') : 'Ще не визначились';
+      const tastePhrase = getTastePhrase(user);
+      const savedCount = user.saved.length;
+      const searchCount = user.searchCount || 0;
+      const lastHistory = user.history.slice(-3).reverse().map(h => `• *${h.dish}* — ${h.place}`).join('\n') || 'Поки нічого';
+
+      let profileText = `👤 *Мій профіль*\n\n`;
+      profileText += `⭐ Статус: ${status}\n`;
+      profileText += `🔍 Пошуків: ${searchCount}  •  ❤️ Збережено: ${savedCount}\n`;
+      if (topCuisines.length) profileText += `\n🍽 Улюблені кухні: ${cuisineStr}\n`;
+      if (tastePhrase) profileText += `🎯 Твій смак: _${tastePhrase}_\n`;
+      profileText += `\n📋 *Останні вибори:*\n${lastHistory}`;
+
+      const profileButtons = [
+        [{ text: '🔄 Новий пошук', callback_data: 'new_search' }, { text: '❤️ Збережені', callback_data: 'all_saved' }],
+        [{ text: '📋 Вся історія', callback_data: 'all_history' }, { text: '🎲 Здивуй мене', callback_data: 'surprise_me' }],
+      ];
+      if (!user.isPro && !user.hasUsedTrial) {
+        profileButtons.push([{ text: '⭐ Спробувати PRO', callback_data: 'activate_trial' }]);
+      }
+
+      await bot.sendMessage(chatId, profileText, {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: profileButtons }
+      });
 
     } else if (data === 'activate_trial') {
       const ok = activateTrial(chatId);
