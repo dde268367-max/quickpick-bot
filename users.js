@@ -1,34 +1,101 @@
-const users = {};
+/**
+ * users.js — зберігання юзерів з персистентністю через JSON файл.
+ *
+ * Чому JSON а не DB? Бот невеликий, Railway перезапускає контейнер,
+ * файл на диску зберігається між деплоями (якщо є volume).
+ * Для масштабування > 1000 юзерів — переходь на Redis або SQLite.
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+const USERS_FILE = path.join(process.cwd(), 'users_data.json');
+
+// ─── Завантаження ─────────────────────────────────────────────────────────────
+let users = {};
+try {
+  if (fs.existsSync(USERS_FILE)) {
+    users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
+    console.log(`[users] Завантажено ${Object.keys(users).length} юзерів`);
+  }
+} catch (e) {
+  console.error('[users] Помилка завантаження, починаємо з нуля:', e.message);
+  users = {};
+}
+
+// ─── Авто-збереження кожні 30 секунд ─────────────────────────────────────────
+let saveTimer = null;
+function scheduleSave() {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    try {
+      // Зберігаємо без session/lastRecs (вони тимчасові)
+      const toSave = {};
+      for (const [id, u] of Object.entries(users)) {
+        toSave[id] = {
+          ...u,
+          session:  {},
+          lastRecs: [],
+          step:     null,
+        };
+      }
+      fs.writeFileSync(USERS_FILE, JSON.stringify(toSave));
+    } catch (e) {
+      console.error('[users] Помилка збереження:', e.message);
+    }
+  }, 30000);
+}
+
+// Зберігаємо при завершенні процесу
+process.on('SIGTERM', () => { try { fs.writeFileSync(USERS_FILE, JSON.stringify(users)); } catch {} });
+process.on('SIGINT',  () => { try { fs.writeFileSync(USERS_FILE, JSON.stringify(users)); } catch {} });
+
+// ─── Структура юзера ─────────────────────────────────────────────────────────
+function defaultUser() {
+  return {
+    session:            {},
+    history:            [],      // [{ dish, place, date }]
+    saved:              [],      // [{ dish, place, address, date }]
+    lastRecs:           [],      // тимчасово, не зберігається
+    isPro:              false,
+    proStartedAt:       null,
+    proExpiresAt:       null,
+    hasUsedTrial:       false,
+    proExpiredNotified: false,
+    joinDate:           Date.now(),
+    step:               null,
+    searchCount:        0,
+    cuisineHistory:     {},      // { '🍝 Щось ситне': 3 }
+    districtHistory:    {},      // { 'Поділ': 2 }
+    topDishes:          [],
+  };
+}
 
 function getUser(id) {
-  if (!users[id]) {
-    users[id] = {
-      session:          {},
-      history:          [],
-      saved:            [],
-      lastRecs:         [],
-      isPro:            false,
-      proStartedAt:     null,
-      proExpiresAt:     null,
-      hasUsedTrial:     false,
-      proExpiredNotified: false,
-      joinDate:         Date.now(),
-      step:             null,
-      searchCount:      0,
-      // Taste memory
-      cuisineHistory:   {},  // { '🍝 Щось ситне': 3 }
-      districtHistory:  {},  // { 'Поділ': 2 }
-      topDishes:        [],  // назви вибраних страв
-      savedPlaces:      [],  // назви збережених закладів
-    };
+  const key = String(id);
+  if (!users[key]) {
+    users[key] = defaultUser();
+    scheduleSave();
   }
 
-  const u = users[id];
-  // Автоперевірка PRO
+  const u = users[key];
+
+  // Автоперевірка закінчення PRO
   if (u.isPro && u.proExpiresAt && Date.now() > u.proExpiresAt) {
     u.isPro = false;
     u.proExpiredNotified = false;
+    scheduleSave();
   }
+
+  // Міграція: додаємо відсутні поля до старих юзерів
+  let migrated = false;
+  const defaults = defaultUser();
+  for (const [k, v] of Object.entries(defaults)) {
+    if (u[k] === undefined) { u[k] = v; migrated = true; }
+  }
+  if (migrated) scheduleSave();
+
   return u;
 }
 
@@ -39,6 +106,7 @@ function activateTrial(id) {
   u.hasUsedTrial = true;
   u.proStartedAt = Date.now();
   u.proExpiresAt = Date.now() + 21 * 24 * 60 * 60 * 1000;
+  scheduleSave();
   return true;
 }
 
@@ -50,8 +118,13 @@ function getProStatus(user) {
 }
 
 function recordTaste(user, cuisine, district) {
-  if (cuisine) user.cuisineHistory[cuisine] = (user.cuisineHistory[cuisine] || 0) + 1;
-  if (district) user.districtHistory[district] = (user.districtHistory[district] || 0) + 1;
+  if (cuisine) {
+    user.cuisineHistory[cuisine] = (user.cuisineHistory[cuisine] || 0) + 1;
+  }
+  if (district) {
+    user.districtHistory[district] = (user.districtHistory[district] || 0) + 1;
+  }
+  scheduleSave();
 }
 
 function getTopCuisines(user, limit = 3) {
@@ -70,15 +143,18 @@ function getTastePhrase(user) {
     '🎲 Обери за мене':   'Любиш сюрпризи 🎲',
     '🍜 Азія':            'Тягне на азійську кухню 🍜',
     '🍔 Швидко і смачно': 'Цінуєш швидко і смачно 🍔',
-    '🥩 Мʼясо':          'М\'ясоїд з досвідом 🥩',
+    '🥩 Мʼясо':          'Мʼясоїд з досвідом 🥩',
   };
   return phrases[top] || null;
 }
 
-// Повторити минулий вибір
 function getLastChoice(user) {
-  if (!user.history || !user.history.length) return null;
+  if (!user.history?.length) return null;
   return user.history[user.history.length - 1];
 }
 
-module.exports = { getUser, activateTrial, getProStatus, recordTaste, getTopCuisines, getTastePhrase, getLastChoice };
+module.exports = {
+  getUser, activateTrial, getProStatus,
+  recordTaste, getTopCuisines, getTastePhrase, getLastChoice,
+  scheduleSave,
+};
