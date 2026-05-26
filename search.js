@@ -133,7 +133,7 @@ async function getPairRec(dish, venueMenu) {
 
 // ─── Main search ──────────────────────────────────────────────────────────────
 async function doSearch(bot, chatId, isSwap = false, isKids = false, extendedRadius = false) {
-  const user = getUser(chatId);
+  const user = await getUser(chatId);
   const s = user.session;
   const budget = getBudgetRange(s.budget);
   const isRandom = s.cuisine === '🎲 Обери за мене';
